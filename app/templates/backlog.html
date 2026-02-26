@@ -1,0 +1,369 @@
+<!-- app/templates/backlog.html -->
+
+{% extends "base.html" %}
+
+{% block title %}Backlog - AI Product Owner{% endblock %}
+
+{% block content %}
+<div class="p-8">
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Product Backlog</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-2">Backlog automático com todas as suas histórias e requisitos</p>
+            <div class="flex items-center gap-2 mt-2">
+                <i class="fas fa-magic text-blue-600 dark:text-blue-400"></i>
+                <span class="text-sm text-blue-600 dark:text-blue-400 font-medium">Atualização automática ativa</span>
+            </div>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="expandAllSections()" class="btn-secondary text-sm"> 
+                <i class="fas fa-expand-alt mr-2"></i>
+                Expandir Todos
+            </button>
+            <button onclick="collapseAllSections()" class="btn-secondary text-sm"> 
+                <i class="fas fa-compress-alt mr-2"></i>
+                Colapsar Todos
+            </button>
+            <button onclick="refreshBacklogs()" class="btn-primary"> 
+                <i class="fas fa-sync-alt mr-2"></i>
+                Atualizar Visualização
+            </button>
+        </div>
+    </div>
+
+    
+
+    <!-- Lista de Itens do Backlog -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        {% if backlogs_data %}
+            {% for backlog_entry in backlogs_data %}
+                <!-- Header do Produto -->
+                <div class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-6 py-4 cursor-pointer" onclick="toggleBacklogSection({{ backlog_entry.product_id }})">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <button class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" id="toggle-btn-{{ backlog_entry.product_id }}">
+                                <i class="fas fa-chevron-right transform transition-transform duration-200"></i>
+                            </button>
+                            <div>
+                                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ backlog_entry.product_name | default('Produto') }}</h2>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">{{ backlog_entry.total_items }} itens no backlog</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2" onclick="event.stopPropagation();">
+                            <span class="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full">
+                                <i class="fas fa-magic mr-1"></i>Auto
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Itens -->
+                <div class="divide-y divide-gray-100 hidden" id="backlog-items-{{ backlog_entry.product_id }}" data-loaded="false">
+                    <div class="px-6 py-4 text-center text-gray-500">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>
+                        Carregando itens do backlog...
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-12">
+                <div class="max-w-md mx-auto">
+                    <i class="fas fa-clipboard-list text-4xl text-gray-300 mb-4"></i>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Nenhum backlog encontrado ainda</h3>
+                    <p class="text-gray-600 mb-4">
+                        Seu backlog será gerado automaticamente quando você criar histórias e requisitos.
+                    </p>
+                    <div class="flex gap-3 justify-center">
+                        <a href="/epics" class="btn-primary">
+                            <i class="fas fa-layer-group mr-2"></i>
+                            Criar Épicos
+                        </a>
+                        <a href="/user-stories" class="btn-secondary">
+                            <i class="fas fa-book-open mr-2"></i>
+                            Criar Histórias
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Função para atualizar a visualização dos backlogs
+    async function refreshBacklogs() {
+        try {
+            // Mostra indicador de carregamento
+            const refreshBtn = document.querySelector('button[onclick="refreshBacklogs()"]');
+            const originalText = refreshBtn.innerHTML;
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Atualizando...';
+            refreshBtn.disabled = true;
+
+            // Simula uma pequena pausa para feedback visual
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Recarrega a página para mostrar backlogs atualizados
+            location.reload();
+        } catch (error) {
+            console.error('Erro ao atualizar backlogs:', error);
+            alert('Erro ao atualizar. Tente novamente.');
+        }
+    }
+
+    // Função para alternar a visibilidade de uma seção do backlog
+    function toggleBacklogSection(productId) {
+        const container = document.getElementById(`backlog-items-${productId}`);
+        const toggleBtn = document.getElementById(`toggle-btn-${productId}`);
+        const chevronIcon = toggleBtn.querySelector('i');
+        const isHidden = container.classList.contains('hidden');
+        
+        if (isHidden) {
+            // Expandir seção
+            container.classList.remove('hidden');
+            chevronIcon.style.transform = 'rotate(90deg)';
+            
+            // Carregar itens se ainda não foram carregados
+            if (container.getAttribute('data-loaded') === 'false') {
+                loadBacklogItems(productId);
+                container.setAttribute('data-loaded', 'true');
+            }
+        } else {
+            // Colapsar seção
+            container.classList.add('hidden');
+            chevronIcon.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    // Função para expandir todas as seções
+    function expandAllSections() {
+        const backlogContainers = document.querySelectorAll('[id^="backlog-items-"]');
+        backlogContainers.forEach(container => {
+            const productId = container.id.replace('backlog-items-', '');
+            const toggleBtn = document.getElementById(`toggle-btn-${productId}`);
+            const chevronIcon = toggleBtn.querySelector('i');
+            
+            container.classList.remove('hidden');
+            chevronIcon.style.transform = 'rotate(90deg)';
+            
+            // Carregar itens se ainda não foram carregados
+            if (container.getAttribute('data-loaded') === 'false') {
+                loadBacklogItems(productId);
+                container.setAttribute('data-loaded', 'true');
+            }
+        });
+    }
+
+    // Função para colapsar todas as seções
+    function collapseAllSections() {
+        const backlogContainers = document.querySelectorAll('[id^="backlog-items-"]');
+        backlogContainers.forEach(container => {
+            const productId = container.id.replace('backlog-items-', '');
+            const toggleBtn = document.getElementById(`toggle-btn-${productId}`);
+            const chevronIcon = toggleBtn.querySelector('i');
+            
+            container.classList.add('hidden');
+            chevronIcon.style.transform = 'rotate(0deg)';
+        });
+    }
+
+    // Função para carregar os itens do backlog de um produto
+    async function loadBacklogItems(productId) {
+        const container = document.getElementById(`backlog-items-${productId}`);
+        
+        try {
+            const response = await authenticatedFetch(`/backlog/product/${productId}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                const items = data.items || [];
+                
+                if (items.length === 0) {
+                    container.innerHTML = `
+                        <div class="px-6 py-8 text-center text-gray-500">
+                            <i class="fas fa-clipboard text-2xl mb-2"></i>
+                            <p>Nenhum item encontrado neste backlog ainda.</p>
+                            <p class="text-sm mt-1">Crie histórias e requisitos para este produto.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                items.forEach((item, index) => {
+                    const priorityClass = getPriorityClass(item.priority);
+                    const statusClass = getStatusClass(item.status);
+                    const typeIcon = item.type === 'user_story' ? 'fas fa-book-open' : 'fas fa-list-check';
+                    const typeLabel = item.type === 'user_story' ? 'História' : 'Requisito';
+                    const createdDate = formatDateTime(item.created_at);
+                    const updatedDate = formatDateTime(item.updated_at);
+
+                    html += `
+                        <div class="px-6 py-4 hover:bg-gray-50 transition-colors">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <span class="flex items-center gap-1 px-2 py-1 text-xs font-medium ${priorityClass} rounded-full">
+                                            ${getPriorityIcon(item.priority)} ${item.priority || 'medium'}
+                                        </span>
+                                        <span class="flex items-center gap-1 px-2 py-1 text-xs font-medium ${statusClass} rounded-full">
+                                            ${getStatusIcon(item.status)} ${getStatusLabel(item.status)}
+                                        </span>
+                                        <span class="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                            <i class="${typeIcon}"></i> ${typeLabel}
+                                        </span>
+                                    </div>
+                                    <div class="text-sm text-gray-900 leading-relaxed mb-2">
+                                        ${item.type === 'user_story' ? item.text : item.description}
+                                    </div>
+                                    <div class="flex items-center gap-4 text-xs text-gray-500">
+                                        <span class="flex items-center gap-1">
+                                            <i class="fas fa-calendar-plus"></i>
+                                            Criado: ${createdDate}
+                                        </span>
+                                        ${item.updated_at && item.updated_at !== item.created_at ? `
+                                            <span class="flex items-center gap-1">
+                                                <i class="fas fa-calendar-edit"></i>
+                                                Atualizado: ${updatedDate}
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1 ml-4">
+                                    <span class="text-xs text-gray-400 font-mono">#${index + 1}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = `
+                    <div class="px-6 py-4 text-center text-red-500">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Erro ao carregar itens do backlog.
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Erro ao carregar backlog:', error);
+            container.innerHTML = `
+                <div class="px-6 py-4 text-center text-red-500">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    Erro de conexão ao carregar backlog.
+                </div>
+            `;
+        }
+    }
+
+    // Funções auxiliares para styling
+    function getPriorityClass(priority) {
+        switch(priority) {
+            case 'critical': return 'bg-red-100 text-red-800';
+            case 'high': return 'bg-orange-100 text-orange-800';
+            case 'medium': return 'bg-yellow-100 text-yellow-800';
+            case 'low': return 'bg-green-100 text-green-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    }
+
+    function getPriorityIcon(priority) {
+        switch(priority) {
+            case 'critical': return '<i class="fas fa-exclamation-triangle"></i>';
+            case 'high': return '<i class="fas fa-chevron-up"></i>';
+            case 'medium': return '<i class="fas fa-minus"></i>';
+            case 'low': return '<i class="fas fa-chevron-down"></i>';
+            default: return '<i class="fas fa-minus"></i>';
+        }
+    }
+
+    function getStatusClass(status) {
+        switch(status) {
+            case 'approved': return 'bg-green-100 text-green-800';
+            case 'review': return 'bg-yellow-100 text-yellow-800';
+            case 'development': return 'bg-blue-100 text-blue-800';
+            case 'done': return 'bg-purple-100 text-purple-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    }
+
+    function getStatusIcon(status) {
+        switch(status) {
+            case 'approved': return '<i class="fas fa-check-circle"></i>';
+            case 'review': return '<i class="fas fa-clock"></i>';
+            case 'development': return '<i class="fas fa-code"></i>';
+            case 'done': return '<i class="fas fa-check-double"></i>';
+            default: return '<i class="fas fa-edit"></i>';
+        }
+    }
+
+    function getStatusLabel(status) {
+        switch(status) {
+            case 'approved': return 'Aprovado';
+            case 'review': return 'Em Revisão';
+            case 'development': return 'Desenvolvimento';
+            case 'done': return 'Concluído';
+            default: return 'Rascunho';
+        }
+    }
+
+    // Função para formatar data e horário
+    function formatDateTime(dateString) {
+        if (!dateString) return 'N/A';
+        
+        try {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            
+            // Se foi hoje, mostra apenas o horário
+            if (diffDays === 0) {
+                return date.toLocaleTimeString('pt-BR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+            }
+            
+            // Se foi ontem
+            if (diffDays === 1) {
+                return `Ontem às ${date.toLocaleTimeString('pt-BR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                })}`;
+            }
+            
+            // Se foi há menos de 7 dias, mostra o dia da semana
+            if (diffDays < 7) {
+                const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+                return `${weekdays[date.getDay()]} às ${date.toLocaleTimeString('pt-BR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                })}`;
+            }
+            
+            // Para datas mais antigas, mostra data completa
+            return date.toLocaleDateString('pt-BR', { 
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (error) {
+            console.warn('Erro ao formatar data:', dateString);
+            return 'Data inválida';
+        }
+    }
+
+    // Inicialização da página
+    document.addEventListener('DOMContentLoaded', function() {
+        // As seções começam colapsadas - não carregamos automaticamente
+        // Os itens são carregados apenas quando o usuário expandir uma seção
+        console.log('Página do backlog carregada. Seções começam colapsadas.');
+    });
+</script>
+{% endblock %}

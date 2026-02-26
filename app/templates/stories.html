@@ -1,0 +1,2145 @@
+<!-- app/templates/stories.html -->
+
+{% extends "base.html" %}
+
+{% block title %}Histórias - AI Product Owner{% endblock %}
+
+{% block head %}
+<style>
+    /* Estilos específicos para a página de histórias */
+    .story-item {
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .story-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    
+    .story-item.filtered-out {
+        opacity: 0;
+        transform: scale(0.95);
+        pointer-events: none;
+    }
+    
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Animação para os ícones */
+    .btn-icon {
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+        transition: all 0.2s ease;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+    }
+
+    .btn-icon:hover {
+        transform: scale(1.1);
+    }
+
+    /* Loading state para busca */
+    .search-loading {
+        position: relative;
+    }
+
+    .search-loading::after {
+        content: '';
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 16px;
+        border: 2px solid #e5e7eb;
+        border-top: 2px solid #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: translateY(-50%) rotate(0deg); }
+        100% { transform: translateY(-50%) rotate(360deg); }
+    }
+
+    @keyframes spin-center {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    /* Animação suave para grid */
+    #stories-list {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Estilos específicos para badges de status */
+    .badge-draft {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge-active {
+        background-color: #dcfce7;
+        color: #166534;
+    }
+
+    .badge-in_review {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .badge-approved {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .badge-done {
+        background-color: #e0e7ff;
+        color: #3730a3;
+    }
+
+    /* Animação de hover nos stats cards */
+    .stat-card-hover {
+        transition: all 0.2s ease;
+    }
+
+    .stat-card-hover:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Animações para contadores dos cards */
+    .stat-card-requirements .text-sm.font-semibold {
+        transition: all 0.3s ease;
+    }
+
+    .stat-card-requirements.highlight .text-sm.font-semibold {
+        color: #7c3aed;
+        transform: scale(1.1);
+    }
+
+    /* Pulse animation para estatísticas atualizadas */
+    @keyframes pulse-purple {
+        0% { 
+            background-color: #faf5ff; 
+            transform: scale(1);
+        }
+        50% { 
+            background-color: #e9d5ff; 
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+        }
+        100% { 
+            background-color: #faf5ff; 
+            transform: scale(1);
+        }
+    }
+
+    .requirements-updated {
+        animation: pulse-purple 2s ease-in-out;
+        border-color: #a855f7 !important;
+    }
+
+    /* Loading state para contadores */
+    .stat-loading {
+        opacity: 0.6;
+        position: relative;
+    }
+
+    .stat-loading::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 12px;
+        height: 12px;
+        border: 2px solid #e5e7eb;
+        border-top: 2px solid #7c3aed;
+        border-radius: 50%;
+        animation: spin-center 1s linear infinite;
+    }
+
+    /* Toast Notifications */
+    .toast-notification {
+        backdrop-filter: blur(8px);
+        border-left: 4px solid rgba(255, 255, 255, 0.5);
+    }
+
+    .toast-notification.bg-green-500 {
+        background: linear-gradient(135deg, #10b981, #059669);
+        border-left-color: #d1fae5;
+    }
+
+    .toast-notification.bg-red-500 {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        border-left-color: #fecaca;
+    }
+
+    .toast-notification.bg-blue-500 {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        border-left-color: #dbeafe;
+    }
+
+    /* Animação de contador crescente */
+    .stat-card-requirements .text-sm.font-semibold {
+        transition: all 0.3s ease;
+        display: inline-block;
+    }
+
+    .stat-card-requirements.highlight .text-sm.font-semibold {
+        color: #7c3aed;
+        transform: scale(1.2);
+        text-shadow: 0 0 10px rgba(124, 58, 237, 0.5);
+    }
+
+    /* Efeito hover melhorado para botão de gerar requisitos */
+    .btn-icon[title="Gerar Requisitos"]:hover {
+        background: linear-gradient(135deg, #10b981, #059669) !important;
+        color: white !important;
+        transform: scale(1.15);
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    }
+
+    /* Feedback visual para ações em andamento */
+    .generating-requirements {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .generating-requirements::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.2), transparent);
+        animation: shimmer 1.5s infinite;
+    }
+
+    @keyframes shimmer {
+        0% { left: -100%; }
+        100% { left: 100%; }
+    }
+
+    /* Estilos específicos para campos desabilitados no modal de edição */
+    .form-group input[disabled],
+    .form-group textarea[disabled],
+    .form-group select[disabled] {
+        background-color: #f3f4f6 !important;
+        color: #6b7280 !important;
+        cursor: not-allowed !important;
+        opacity: 0.6 !important;
+    }
+
+    .form-group input[readonly],
+    .form-group textarea[readonly] {
+        background-color: #f3f4f6 !important;
+        color: #6b7280 !important;
+        cursor: not-allowed !important;
+        opacity: 0.6 !important;
+    }
+
+    /* Animação para campos que não podem ser editados */
+    .field-restricted {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .field-restricted::before {
+        content: '🔒';
+        position: absolute;
+        top: 50%;
+        right: 8px;
+        transform: translateY(-50%);
+        z-index: 10;
+        color: #dc2626;
+        font-size: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="p-8">
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Histórias de Usuário</h1>
+            {% if filtered_by_epic %}
+            <div class="flex items-center gap-2 mt-2">
+                <p class="text-gray-600 dark:text-gray-400">Filtrado por épico:</p>
+                <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 rounded-full text-sm font-medium">
+                    {{ epic_title_filter }}
+                </span>
+                <button onclick="clearEpicFilter()" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm underline">
+                    Remover filtro
+                </button>
+            </div>
+            {% else %}
+            <p class="text-gray-600 dark:text-gray-400 mt-2">Gerencie e refine suas histórias de usuário</p>
+            {% endif %}
+        </div>
+        <div class="flex gap-3">
+            <button onclick="openGenerateStoriesModal()" class="btn-primary"> {# Chamada para o modal de geração IA #}
+                <i class="fas fa-magic mr-2"></i>
+                Gerar com IA
+            </button>
+            <button onclick="openCreateStoryModal()" class="btn-primary"> {# Novo botão para criar história manualmente #}
+                <i class="fas fa-plus mr-2"></i>
+                Nova História
+            </button>
+        </div>
+    </div>
+
+    <!-- Barra de Pesquisa e Filtros -->
+    <div class="bg-white dark:bg-gray-700 rounded-lg shadow-sm border dark:border-gray-600 p-6 mb-6">
+        <!-- Header da Seção de Filtros -->
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-filter text-blue-600 dark:text-blue-400"></i>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Filtros e Pesquisa</h2>
+            </div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                <span id="resultsCount">
+                    <span class="font-medium" id="visibleCount">0</span> de <span id="totalCount">0</span> histórias
+                </span>
+            </div>
+        </div>
+
+        <!-- Controles de Filtro -->
+        <div class="space-y-4">
+            <!-- Campo de Pesquisa -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-search mr-1"></i>
+                    Buscar histórias
+                </label>
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500"></i>
+                    <input type="text" id="searchInput" placeholder="Buscar por título, descrição, persona ou épico..." 
+                           class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                    <div id="searchClear" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 cursor-pointer hidden hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros e Ações -->
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <!-- Filtro por Épico -->
+                <div class="flex flex-col">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="fas fa-bullseye mr-1"></i>
+                        Épico
+                    </label>
+                    <select id="epicFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="all">🎯 Todos os Épicos</option>
+                        <!-- Options populated by JavaScript -->
+                    </select>
+                </div>
+                
+                <!-- Filtro por Status -->
+                <div class="flex flex-col">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="fas fa-flag mr-1"></i>
+                        Status
+                    </label>
+                    <select id="statusFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="all">🏷️ Todos os Status</option>
+                        <option value="draft">📝 Rascunho</option>
+                        <option value="review">👀 Em Revisão</option>
+                        <option value="approved">✅ Aprovado</option>
+                        <option value="development">⚙️ Desenvolvimento</option>
+                    </select>
+                </div>
+                
+                <!-- Filtro por Prioridade -->
+                <div class="flex flex-col">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        Prioridade
+                    </label>
+                    <select id="priorityFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="all">📊 Todas</option>
+                        <option value="critical">🔴 Crítica</option>
+                        <option value="high">🟠 Alta</option>
+                        <option value="medium">🟡 Média</option>
+                        <option value="low">🟢 Baixa</option>
+                    </select>
+                </div>
+                
+                <!-- Ordenação -->
+                <div class="flex flex-col">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="fas fa-sort mr-1"></i>
+                        Ordenar por
+                    </label>
+                    <select id="sortOrder" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="newest">📅 Mais Recentes</option>
+                        <option value="oldest">📅 Mais Antigas</option>
+                        <option value="priority">🔥 Por Prioridade</option>
+                        <option value="status">🏷️ Por Status</option>
+                        <option value="epic">🎯 Por Épico</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Botão Limpar Filtros -->
+            <div class="flex justify-end">
+                <button onclick="clearAllFilters()" class="flex items-center gap-2 px-4 py-2 text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                    <i class="fas fa-eraser"></i>
+                    <span>Limpar Filtros</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- No Results Message -->
+    <div id="noResultsMessage" class="hidden text-center py-12">
+        <div class="max-w-md mx-auto">
+            <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Nenhuma história encontrada</h3>
+            <p class="text-gray-600 mb-4">Tente ajustar os filtros ou criar uma nova história.</p>
+            <button onclick="clearAllFilters()" class="btn-secondary">
+                <i class="fas fa-filter-circle-xmark mr-2"></i>
+                Limpar Filtros
+            </button>
+        </div>
+    </div>
+
+    <!-- Stories Grid -->
+    <div id="stories-list" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {% if stories_data %}
+            {% for story in stories_data %}
+            <div class="story-item bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer group" 
+                 data-id="{{ story.id }}"
+                 data-status="{{ story.status }}" 
+                 data-priority="{{ story.priority }}" 
+                 data-epic-id="{{ story.epic_id | default('') }}"
+                 data-epic-title="{{ story.epic_title | default('') }}"
+                 data-title="{{ story.story_text | lower }}" 
+                 data-description="{{ story.story_text | lower }}"
+                 data-persona="{{ story.as_a | lower }}"
+                 data-created="{{ story.created_at if story.created_at else '' }}"
+                 onclick="openStoryDetails({{ story.id }})">
+                
+                <!-- Header do Card -->
+                <div class="flex items-start justify-between mb-4 p-6 pb-0">
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-lg font-semibold text-gray-900 leading-tight mb-2 group-hover:text-blue-600 transition-colors duration-200">
+                            Como um {{ story.as_a }}, eu quero {{ story.i_want[:60] }}{% if story.i_want|length > 60 %}...{% endif %}
+                        </h3>
+                        
+                        <!-- Status e Prioridade -->
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium
+                                {% if story.status == 'approved' %}bg-green-100 text-green-800
+                                {% elif story.status == 'review' %}bg-yellow-100 text-yellow-800
+                                {% elif story.status == 'development' %}bg-blue-100 text-blue-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {% if story.status == 'approved' %}
+                                    <i class="fas fa-check-circle"></i>
+                                    Aprovado
+                                {% elif story.status == 'review' %}
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    Em Revisão
+                                {% elif story.status == 'development' %}
+                                    <i class="fas fa-code"></i>
+                                    Desenvolvimento
+                                {% else %}
+                                    <i class="fas fa-edit"></i>
+                                    Rascunho
+                                {% endif %}
+                            </span>
+                            
+                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium
+                                {% if story.priority == 'critical' %}bg-red-100 text-red-800
+                                {% elif story.priority == 'high' %}bg-orange-100 text-orange-800
+                                {% elif story.priority == 'medium' %}bg-yellow-100 text-yellow-800
+                                {% elif story.priority == 'low' %}bg-green-100 text-green-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {% if story.priority == 'critical' %}
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    Crítica
+                                {% elif story.priority == 'high' %}
+                                    <i class="fas fa-chevron-up"></i>
+                                    Alta
+                                {% elif story.priority == 'medium' %}
+                                    <i class="fas fa-minus"></i>
+                                    Média
+                                {% elif story.priority == 'low' %}
+                                    <i class="fas fa-chevron-down"></i>
+                                    Baixa
+                                {% else %}
+                                    {{ story.priority | capitalize }}
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Descrição -->
+                <div class="mb-4 px-6">
+                    <p class="text-sm text-gray-700 leading-relaxed line-clamp-2">
+                        <span class="font-medium text-gray-800">Para que:</span> {{ story.so_that }}
+                    </p>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-3 gap-3 mb-4 px-6">
+                    <!-- Requisitos -->
+                    <div class="stat-card-requirements bg-purple-50 border border-purple-200 rounded-lg p-3 text-center hover:bg-purple-100 transition-colors stat-card-hover">
+                        <div class="flex flex-col items-center">
+                            <i class="fas fa-list-check text-purple-600 mb-1"></i>
+                            <span class="text-sm font-semibold text-purple-900" id="requirements-count-{{ story.id }}">0</span>
+                            <span class="text-xs text-purple-700">Requisitos</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Épico -->
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-center hover:bg-indigo-100 transition-colors stat-card-hover">
+                        <div class="flex flex-col items-center">
+                            <i class="fas fa-layer-group text-indigo-600 mb-1"></i>
+                            <span class="text-xs font-semibold text-indigo-900 truncate max-w-full">{{ story.epic_title[:12] if story.epic_title else 'N/A' }}{% if story.epic_title and story.epic_title|length > 12 %}...{% endif %}</span>
+                            <span class="text-xs text-indigo-700">Épico</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Data de Criação -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center hover:bg-gray-100 transition-colors stat-card-hover">
+                        <div class="flex flex-col items-center">
+                            <i class="fas fa-calendar text-gray-600 mb-1"></i>
+                            <span class="text-xs font-semibold text-gray-900" id="created-date-{{ story.id }}">{{ story.created_at[:10] if story.created_at else 'N/A' }}</span>
+                            <span class="text-xs text-gray-700">Criado</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons Footer -->
+                <div class="flex justify-between items-center pt-3 border-t border-gray-100 px-6 pb-6">
+                    <div class="flex items-center gap-2 text-xs text-gray-500">
+                        <i class="fas fa-user"></i>
+                        <span>{{ story.as_a }}</span>
+                    </div>
+                    
+                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <button onclick="event.stopPropagation(); editStory({{ story.id }})" 
+                                class="btn-icon text-gray-400 hover:text-blue-600 hover:bg-blue-50" 
+                                title="Editar História">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="event.stopPropagation(); generateRequirements({{ story.id }})" 
+                                class="btn-icon text-gray-400 hover:text-green-600 hover:bg-green-50" 
+                                title="Gerar Requisitos">
+                            <i class="fas fa-list-ol"></i>
+                        </button>
+                        <button onclick="event.stopPropagation(); deleteStory({{ story.id }})" 
+                                class="btn-icon text-gray-400 hover:text-red-600 hover:bg-red-50" 
+                                title="Excluir História">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <!-- Estado Vazio - Nenhuma História -->
+            <div id="noStoriesMessage" class="col-span-full">
+                <div class="text-center py-12">
+                    <div class="mx-auto w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mb-6">
+                        <i class="fas fa-book-open text-3xl text-blue-600"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Nenhuma história criada ainda</h3>
+                    <p class="text-gray-600 mb-6 max-w-sm mx-auto">
+                        Comece criando sua primeira história de usuário para organizar os requisitos do produto.
+                    </p>
+                    <div class="flex gap-3 justify-center">
+                        <button onclick="openGenerateStoriesModal()" class="btn-primary">
+                            <i class="fas fa-magic mr-2"></i>
+                            Gerar com IA
+                        </button>
+                        <button onclick="openCreateStoryModal()" class="btn-secondary">
+                            <i class="fas fa-plus mr-2"></i>
+                            Criar Manualmente
+                        </button>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+        
+        <!-- Estado Vazio - Nenhum Resultado de Busca -->
+        <div id="noResultsMessage" class="col-span-full" style="display: none;">
+            <div class="text-center py-12">
+                <div class="mx-auto w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mb-6">
+                    <i class="fas fa-search text-3xl text-blue-600"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Nenhum resultado encontrado</h3>
+                <p class="text-gray-600 mb-6 max-w-sm mx-auto">
+                    Tente ajustar os filtros ou criar uma nova história.
+                </p>
+                <div class="flex gap-3 justify-center">
+                    <button onclick="clearAllFilters()" class="btn-secondary">
+                        <i class="fas fa-filter-circle-xmark mr-2"></i>
+                        Limpar Filtros
+                    </button>
+                    <button onclick="openCreateStoryModal()" class="btn-primary">
+                        <i class="fas fa-plus mr-2"></i>
+                        Nova História
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Generate Stories Modal -->
+<div id="generateStoriesModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="text-xl font-semibold flex items-center gap-2">
+                <i class="fas fa-magic"></i>
+                Gerar Histórias com IA
+            </h2>
+            <button onclick="closeModal('generateStoriesModal')" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="generateStoriesForm" onsubmit="generateStories(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="epicSelect">Selecione um Épico *</label>
+                    <select id="epicSelect" name="epic_id" required 
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Carregando épicos...</option>
+                        {# Opções serão carregadas via JavaScript #}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="customPromptStories">Ajustar Prompt (Opcional)</label>
+                    <textarea id="customPromptStories" name="custom_prompt" rows="4"
+                              placeholder="Ex: 'Foque em histórias para a persona de administrador.'"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Isso adicionará instruções extras ao prompt padrão da IA.</p>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('generateStoriesModal')" class="btn-secondary">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-magic mr-2"></i>
+                    Gerar Histórias
+                </button>
+            </div>
+        </form>
+        <div id="modal-message-stories" class="mt-4 p-3 rounded-lg text-center" style="display: none;"></div>
+    </div>
+</div>
+
+<!-- Modal para Criar Nova História (Manualmente) -->
+<div id="createStoryModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="text-xl font-semibold">Criar Nova História de Usuário</h2>
+            <button onclick="closeModal('createStoryModal')" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="createStoryForm" onsubmit="createStory(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newStoryEpicSelect">Épico *</label>
+                    <select id="newStoryEpicSelect" name="epic_id" required 
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Carregando épicos...</option>
+                        {# Opções serão carregadas via JavaScript #}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="storyAsA">Como um *</label>
+                    <input type="text" id="storyAsA" name="as_a" required 
+                           placeholder="Ex: usuário, administrador, cliente...">
+                </div>
+                <div class="form-group">
+                    <label for="storyIWant">Eu quero *</label>
+                    <textarea id="storyIWant" name="i_want" required rows="2"
+                              placeholder="Ex: me cadastrar no sistema, visualizar meu perfil..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="storySoThat">Para que *</label>
+                    <textarea id="storySoThat" name="so_that" required rows="2"
+                              placeholder="Ex: eu possa acessar os recursos, ter uma experiência personalizada..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="storyPriority">Prioridade</label>
+                    <select id="storyPriority" name="priority" 
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="medium">Média</option>
+                        <option value="high">Alta</option>
+                        <option value="low">Baixa</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('createStoryModal')" class="btn-secondary">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary">
+                    Criar História
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para Editar História -->
+<div id="editStoryModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="text-xl font-semibold">
+                <i class="fas fa-edit mr-2"></i>
+                Editar História de Usuário
+            </h2>
+            <button onclick="closeModal('editStoryModal')" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="editStoryForm" onsubmit="updateStory(event)">
+            <div class="modal-body">
+                <!-- Alert para histórias com requisitos -->
+                <div id="editStoryAlert" class="hidden mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div class="flex items-start">
+                        <i class="fas fa-exclamation-triangle text-yellow-600 mr-2 mt-0.5"></i>
+                        <div class="text-sm text-yellow-800">
+                            <strong>Atenção:</strong> Esta história possui requisitos vinculados. 
+                            Apenas o status e prioridade podem ser alterados.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Campo hidden para armazenar o ID da história -->
+                <input type="hidden" id="editStoryId" name="story_id">
+
+                <div class="form-group">
+                    <label for="editStoryStatus">Status *</label>
+                    <select id="editStoryStatus" name="status" required 
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="draft">Rascunho</option>
+                        <option value="review">Em Revisão</option>
+                        <option value="approved">Aprovado</option>
+                        <option value="development">Desenvolvimento</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="editStoryEpicSelect">Épico *</label>
+                    <select id="editStoryEpicSelect" name="epic_id" required 
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Carregando épicos...</option>
+                        {# Opções serão carregadas via JavaScript #}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="editStoryAsA">Como um *</label>
+                    <input type="text" id="editStoryAsA" name="as_a" required 
+                           class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Ex: usuário, administrador, cliente...">
+                </div>
+
+                <div class="form-group">
+                    <label for="editStoryIWant">Eu quero *</label>
+                    <textarea id="editStoryIWant" name="i_want" required rows="2"
+                              class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Ex: me cadastrar no sistema, visualizar meu perfil..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="editStorySoThat">Para que *</label>
+                    <textarea id="editStorySoThat" name="so_that" required rows="2"
+                              class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Ex: eu possa acessar os recursos, ter uma experiência personalizada..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="editStoryPriority">Prioridade</label>
+                    <select id="editStoryPriority" name="priority" 
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="low">Baixa</option>
+                        <option value="medium">Média</option>
+                        <option value="high">Alta</option>
+                        <option value="critical">Crítica</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('editStoryModal')" class="btn-secondary">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-save mr-2"></i>
+                    Salvar Alterações
+                </button>
+            </div>
+        </form>
+        <div id="modal-message-edit-story" class="mt-4 p-3 rounded-lg text-center" style="display: none;"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Global variables
+    let allStories = [];
+    let allEpics = [];
+    let searchTimeout;
+    let currentView = 'grid';
+
+    // Initialize page when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        initializePage();
+        setupEventListeners();
+        formatDates(); // Format all dates on page load
+        
+        // Suporte para tecla Escape para fechar modais
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modals = ['editStoryModal', 'createStoryModal', 'generateStoriesModal'];
+                modals.forEach(modalId => {
+                    const modal = document.getElementById(modalId);
+                    if (modal && modal.style.display === 'flex') {
+                        closeModal(modalId);
+                    }
+                });
+            }
+        });
+        
+        // Carregar épicos e DEPOIS aplicar filtro se necessário
+        loadEpicsForFilters().then(() => {
+            // Se há filtro de épico aplicado, pré-selecionar no dropdown APÓS carregar
+            {% if filtered_by_epic %}
+            const epicFilter = document.getElementById('epicFilter');
+            if (epicFilter) {
+                epicFilter.value = '{{ epic_id_filter }}';
+                console.log('Filtro épico aplicado:', '{{ epic_id_filter }}');
+                // Aplicar filtro imediatamente
+                filterStories();
+            }
+            {% endif %}
+        });
+    });
+
+    // Format dates for better display
+    function formatDates() {
+        const dateElements = document.querySelectorAll('[data-created]');
+        dateElements.forEach(element => {
+            const created = element.getAttribute('data-created');
+            if (created) {
+                const dateSpan = element.querySelector('.text-xs.text-gray-500 span');
+                if (dateSpan) {
+                    try {
+                        const date = new Date(created);
+                        const formattedDate = date.toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                        });
+                        dateSpan.textContent = `Criado em ${formattedDate}`;
+                    } catch (error) {
+                        console.warn('Erro ao formatar data:', created);
+                    }
+                }
+            }
+        });
+    }
+
+    function initializePage() {
+        allStories = Array.from(document.querySelectorAll('.story-item'));
+        updateResultsCount();
+    }
+
+    function setupEventListeners() {
+        // Search input with debounce
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(filterStories, 300);
+            
+            // Show/hide clear button
+            const clearBtn = document.getElementById('searchClear');
+            if (this.value.trim()) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+        });
+
+        // Enter key support
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimeout);
+                filterStories();
+            }
+        });
+
+        // Clear search
+        document.getElementById('searchClear').addEventListener('click', function() {
+            searchInput.value = '';
+            this.classList.add('hidden');
+            filterStories();
+        });
+
+        // Filter dropdowns
+        document.getElementById('epicFilter').addEventListener('change', filterStories);
+        document.getElementById('statusFilter').addEventListener('change', filterStories);
+        document.getElementById('priorityFilter').addEventListener('change', filterStories);
+        document.getElementById('sortOrder').addEventListener('change', sortStories);
+    }
+
+    // Load epics for filter dropdown
+    async function loadEpicsForFilters() {
+        try {
+            const response = await authenticatedFetch('/epics/api/user', { method: 'GET' });
+            if (response.ok) {
+                allEpics = await response.json();
+                const epicFilter = document.getElementById('epicFilter');
+                
+                allEpics.forEach(epic => {
+                    const option = document.createElement('option');
+                    option.value = epic.id;
+                    option.textContent = epic.title;
+                    epicFilter.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Erro ao carregar épicos para filtro:', error);
+        }
+    }
+
+    // Enhanced filter function
+    function filterStories() {
+        const searchInput = document.getElementById('searchInput');
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const epicFilter = document.getElementById('epicFilter').value;
+        const statusFilter = document.getElementById('statusFilter').value;
+        const priorityFilter = document.getElementById('priorityFilter').value;
+        
+        // DEBUG: Log dos valores dos filtros
+        console.log('filterStories - epicFilter value:', epicFilter);
+        console.log('filterStories - total stories:', allStories.length);
+        
+        let visibleCount = 0;
+
+        // Add loading state only if there's a search term
+        if (searchTerm) {
+            searchInput.classList.add('search-loading');
+        }
+
+        setTimeout(() => {
+            allStories.forEach(story => {
+                const title = story.getAttribute('data-title') || '';
+                const description = story.getAttribute('data-description') || '';
+                const persona = story.getAttribute('data-persona') || '';
+                const epicId = story.getAttribute('data-epic-id') || '';
+                const epicTitle = story.getAttribute('data-epic-title') || '';
+                const status = story.getAttribute('data-status') || '';
+                const priority = story.getAttribute('data-priority') || '';
+
+                // Search filter
+                const matchesSearch = !searchTerm || 
+                    title.includes(searchTerm) || 
+                    description.includes(searchTerm) || 
+                    persona.includes(searchTerm) ||
+                    epicTitle.toLowerCase().includes(searchTerm);
+
+                // Epic filter
+                const matchesEpic = epicFilter === 'all' || epicId === epicFilter;
+                
+                // DEBUG: Log para primeira história
+                if (story === allStories[0]) {
+                    console.log('filterStories - primeira história:');
+                    console.log('  epicId:', epicId);
+                    console.log('  epicFilter:', epicFilter);
+                    console.log('  matchesEpic:', matchesEpic);
+                }
+
+                // Status filter
+                const matchesStatus = statusFilter === 'all' || status === statusFilter;
+
+                // Priority filter
+                const matchesPriority = priorityFilter === 'all' || priority === priorityFilter;
+
+                const isVisible = matchesSearch && matchesEpic && matchesStatus && matchesPriority;
+
+                if (isVisible) {
+                    story.style.display = 'block';
+                    story.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    story.style.display = 'none';
+                    story.classList.add('hidden');
+                }
+            });
+
+            // Update UI
+            updateResultsCount(visibleCount);
+            updateActiveFilters();
+            showNoResultsMessage(visibleCount === 0 && allStories.length > 0);
+            
+            // Always remove loading state
+            searchInput.classList.remove('search-loading');
+            
+            // Sort visible stories
+            sortStories();
+        }, searchTerm ? 300 : 0); // Only delay if there's a search term
+    }
+
+    // Sort stories function
+    function sortStories() {
+        const sortOrder = document.getElementById('sortOrder').value;
+        const container = document.getElementById('stories-list');
+        const visibleStories = Array.from(container.querySelectorAll('.story-item:not(.hidden)'));
+
+        visibleStories.sort((a, b) => {
+            switch (sortOrder) {
+                case 'newest':
+                    // Use created date if available, fallback to ID
+                    const createdA = a.getAttribute('data-created') || '';
+                    const createdB = b.getAttribute('data-created') || '';
+                    if (createdA && createdB) {
+                        return new Date(createdB) - new Date(createdA);
+                    }
+                    return parseInt(b.getAttribute('data-id') || 0) - parseInt(a.getAttribute('data-id') || 0);
+                case 'oldest':
+                    const oldCreatedA = a.getAttribute('data-created') || '';
+                    const oldCreatedB = b.getAttribute('data-created') || '';
+                    if (oldCreatedA && oldCreatedB) {
+                        return new Date(oldCreatedA) - new Date(oldCreatedB);
+                    }
+                    return parseInt(a.getAttribute('data-id') || 0) - parseInt(b.getAttribute('data-id') || 0);
+                case 'priority':
+                    const priorityOrder = { 'critical': 4, 'high': 3, 'medium': 2, 'low': 1 };
+                    return (priorityOrder[b.getAttribute('data-priority')] || 0) - (priorityOrder[a.getAttribute('data-priority')] || 0);
+                case 'status':
+                    const statusOrder = { 'approved': 4, 'development': 3, 'review': 2, 'draft': 1 };
+                    return (statusOrder[b.getAttribute('data-status')] || 0) - (statusOrder[a.getAttribute('data-status')] || 0);
+                case 'epic':
+                    const epicA = a.getAttribute('data-epic-title') || '';
+                    const epicB = b.getAttribute('data-epic-title') || '';
+                    return epicA.localeCompare(epicB);
+                default:
+                    return 0;
+            }
+        });
+
+        // Reorder DOM elements
+        visibleStories.forEach(story => {
+            container.appendChild(story);
+        });
+    }
+
+    // Update results count
+    function updateResultsCount(visibleCount = null) {
+        if (visibleCount === null) {
+            visibleCount = allStories.filter(story => !story.classList.contains('hidden')).length;
+        }
+        
+        document.getElementById('visibleCount').textContent = visibleCount;
+        document.getElementById('totalCount').textContent = allStories.length;
+    }
+
+    // Update active filters display
+    function updateActiveFilters() {
+        const activeFiltersContainer = document.getElementById('activeFilters');
+        activeFiltersContainer.innerHTML = '';
+        
+        const filters = [
+            { name: 'Épico', value: document.getElementById('epicFilter').value, display: document.getElementById('epicFilter').selectedOptions[0]?.text },
+            { name: 'Status', value: document.getElementById('statusFilter').value, display: document.getElementById('statusFilter').selectedOptions[0]?.text },
+            { name: 'Prioridade', value: document.getElementById('priorityFilter').value, display: document.getElementById('priorityFilter').selectedOptions[0]?.text }
+        ];
+
+        filters.forEach(filter => {
+            if (filter.value && filter.value !== 'all') {
+                const badge = document.createElement('span');
+                badge.className = 'inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full';
+                badge.innerHTML = `
+                    <span>${filter.name}: ${filter.display}</span>
+                    <button onclick="clearFilter('${filter.name.toLowerCase()}')" class="ml-1 hover:bg-blue-200 rounded-full p-0.5">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
+                `;
+                activeFiltersContainer.appendChild(badge);
+            }
+        });
+    }
+
+    // Clear specific filter
+    function clearFilter(filterType) {
+        const filterMap = {
+            'épico': 'epicFilter',
+            'status': 'statusFilter',
+            'prioridade': 'priorityFilter'
+        };
+        
+        const filterId = filterMap[filterType];
+        if (filterId) {
+            document.getElementById(filterId).value = 'all';
+            filterStories();
+        }
+    }
+
+    // Clear all filters
+    function clearAllFilters() {
+        const searchInput = document.getElementById('searchInput');
+        searchInput.value = '';
+        document.getElementById('epicFilter').value = 'all';
+        document.getElementById('statusFilter').value = 'all';
+        document.getElementById('priorityFilter').value = 'all';
+        document.getElementById('sortOrder').value = 'newest';
+        document.getElementById('searchClear').classList.add('hidden');
+        
+        // Remove any loading state
+        searchInput.classList.remove('search-loading');
+        
+        filterStories();
+    }
+
+    // Clear epic filter and return to all stories
+    function clearEpicFilter() {
+        window.location.href = '/user-stories';
+    }
+
+    // Show/hide no results message
+    function showNoResultsMessage(show) {
+        const noResultsMsg = document.getElementById('noResultsMessage');
+        const storiesList = document.getElementById('stories-list');
+        
+        if (show) {
+            noResultsMsg.style.display = 'block';
+            storiesList.style.display = 'none';
+        } else {
+            noResultsMsg.style.display = 'none';
+            storiesList.style.display = 'grid';
+        }
+    }
+
+    // Toggle view (grid/list)
+    function toggleView(view) {
+        currentView = view;
+        const gridBtn = document.getElementById('gridViewBtn');
+        const listBtn = document.getElementById('listViewBtn');
+        const container = document.getElementById('storiesGrid');
+        
+        if (view === 'grid') {
+            gridBtn.className = 'px-3 py-1 text-sm bg-blue-500 text-white';
+            listBtn.className = 'px-3 py-1 text-sm bg-white text-gray-600 hover:bg-gray-50';
+            container.className = 'grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6';
+        } else {
+            listBtn.className = 'px-3 py-1 text-sm bg-blue-500 text-white';
+            gridBtn.className = 'px-3 py-1 text-sm bg-white text-gray-600 hover:bg-gray-50';
+            container.className = 'space-y-4';
+        }
+    }
+
+    // Open story details - navigate to requirements filtered by this story
+    function openStoryDetails(storyId) {
+        console.log('openStoryDetails called with storyId:', storyId);
+        console.log('Navigating to requirements for story:', storyId);
+        
+        // Get token from localStorage or URL for authentication
+        const token = localStorage.getItem('access_token') || new URLSearchParams(window.location.search).get('token');
+        
+        if (token) {
+            console.log('Navigating with token to:', `/requirements?story_id=${storyId}&token=${token}`);
+            window.location.href = `/requirements?story_id=${storyId}&token=${token}`;
+        } else {
+            console.log('Navigating without token to:', `/requirements?story_id=${storyId}`);
+            window.location.href = `/requirements?story_id=${storyId}`;
+        }
+    }
+
+    // Modal functions
+    function openGenerateStoriesModal() {
+        document.getElementById('generateStoriesModal').style.display = 'flex';
+        loadEpicsForSelect('epicSelect');
+    }
+
+    function openCreateStoryModal() {
+        document.getElementById('createStoryModal').style.display = 'flex';
+        loadEpicsForSelect('newStoryEpicSelect');
+    }
+
+    // Função para abrir modal de edição
+    async function openEditStoryModal(storyData, hasRequirements) {
+        console.log('=== INÍCIO openEditStoryModal ===');
+        console.log('Abrindo modal de edição com dados:', storyData);
+        console.log('História tem requisitos (parâmetro):', hasRequirements);
+        console.log('Tipo do parâmetro hasRequirements:', typeof hasRequirements);
+        
+        // Carregar épicos primeiro
+        await loadEpicsForSelect('editStoryEpicSelect');
+        
+        // Preencher campos do formulário
+        document.getElementById('editStoryId').value = storyData.id;
+        document.getElementById('editStoryStatus').value = storyData.status || 'draft';
+        document.getElementById('editStoryEpicSelect').value = storyData.epic_id || '';
+        document.getElementById('editStoryAsA').value = storyData.as_a || '';
+        document.getElementById('editStoryIWant').value = storyData.i_want || '';
+        document.getElementById('editStorySoThat').value = storyData.so_that || '';
+        document.getElementById('editStoryPriority').value = storyData.priority || 'medium';
+        
+        // Mostrar/ocultar alerta e desabilitar campos se necessário
+        const alertElement = document.getElementById('editStoryAlert');
+        const epicSelect = document.getElementById('editStoryEpicSelect');
+        const asAInput = document.getElementById('editStoryAsA');
+        const iWantTextarea = document.getElementById('editStoryIWant');
+        const soThatTextarea = document.getElementById('editStorySoThat');
+        
+        console.log('Elementos encontrados:', {
+            alertElement: !!alertElement,
+            epicSelect: !!epicSelect,
+            asAInput: !!asAInput,
+            iWantTextarea: !!iWantTextarea,
+            soThatTextarea: !!soThatTextarea
+        });
+        
+        // Verificação explícita do valor boolean
+        const shouldRestrict = Boolean(hasRequirements);
+        console.log('Deve restringir campos (Boolean conversion):', shouldRestrict);
+        
+        // Verificação adicional como último recurso
+        if (!shouldRestrict) {
+            console.log('=== VERIFICAÇÃO ADICIONAL DE REQUISITOS ===');
+            try {
+                const emergencyCheck = await authenticatedFetch(`/user-stories/${storyData.id}/requirements-count`, { method: 'GET' });
+                if (emergencyCheck.ok) {
+                    const emergencyData = await emergencyCheck.json();
+                    const emergencyCount = emergencyData.count || 0;
+                    console.log('Verificação de emergência - contagem:', emergencyCount);
+                    if (emergencyCount > 0) {
+                        console.log('ATENÇÃO: Verificação de emergência detectou requisitos! Forçando restrições.');
+                        hasRequirements = true;
+                        shouldRestrict = true;
+                    }
+                }
+            } catch (error) {
+                console.log('Erro na verificação de emergência:', error);
+            }
+        }
+        
+        console.log('Decisão final sobre restrições:', shouldRestrict || hasRequirements);
+        
+        if (shouldRestrict === true || hasRequirements === true) {
+            console.log('=== APLICANDO RESTRIÇÕES ===');
+            console.log('Aplicando restrições - história tem requisitos');
+            alertElement.classList.remove('hidden');
+            
+            // Desabilitar campos que não podem ser editados
+            epicSelect.disabled = true;
+            asAInput.disabled = true;
+            iWantTextarea.disabled = true;
+            soThatTextarea.disabled = true;
+            
+            // Adicionar estilo visual para campos desabilitados
+            epicSelect.classList.add('bg-gray-100', 'cursor-not-allowed');
+            asAInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+            iWantTextarea.classList.add('bg-gray-100', 'cursor-not-allowed');
+            soThatTextarea.classList.add('bg-gray-100', 'cursor-not-allowed');
+            
+            // Adicionar classe para indicar restrição
+            epicSelect.parentElement.classList.add('field-restricted');
+            asAInput.parentElement.classList.add('field-restricted');
+            iWantTextarea.parentElement.classList.add('field-restricted');
+            soThatTextarea.parentElement.classList.add('field-restricted');
+            
+            // Adicionar readonly como medida extra de segurança
+            // Para select, vamos usar um event listener para prevenir mudanças
+            const preventChange = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            };
+            epicSelect.addEventListener('change', preventChange);
+            epicSelect.addEventListener('mousedown', preventChange);
+            epicSelect.addEventListener('keydown', preventChange);
+            epicSelect.dataset.preventChange = 'true';
+            
+            asAInput.setAttribute('readonly', 'true');
+            iWantTextarea.setAttribute('readonly', 'true');
+            soThatTextarea.setAttribute('readonly', 'true');
+            
+            console.log('Estado final dos campos após restrições:', {
+                epicSelectDisabled: epicSelect.disabled,
+                asAInputDisabled: asAInput.disabled,
+                iWantTextareaDisabled: iWantTextarea.disabled,
+                soThatTextareaDisabled: soThatTextarea.disabled,
+                epicSelectReadonly: epicSelect.hasAttribute('readonly'),
+                asAInputReadonly: asAInput.hasAttribute('readonly')
+            });
+        } else {
+            console.log('=== SEM RESTRIÇÕES ===');
+            console.log('Sem restrições - história não tem requisitos');
+            alertElement.classList.add('hidden');
+            
+            // Habilitar todos os campos
+            epicSelect.disabled = false;
+            asAInput.disabled = false;
+            iWantTextarea.disabled = false;
+            soThatTextarea.disabled = false;
+            
+            // Remover readonly e event listeners
+            if (epicSelect.dataset.preventChange) {
+                const preventChange = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                };
+                epicSelect.removeEventListener('change', preventChange);
+                epicSelect.removeEventListener('mousedown', preventChange);
+                epicSelect.removeEventListener('keydown', preventChange);
+                delete epicSelect.dataset.preventChange;
+            }
+            
+            asAInput.removeAttribute('readonly');
+            iWantTextarea.removeAttribute('readonly');
+            soThatTextarea.removeAttribute('readonly');
+            
+            // Remover estilo de campos desabilitados
+            epicSelect.classList.remove('bg-gray-100', 'cursor-not-allowed');
+            asAInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
+            iWantTextarea.classList.remove('bg-gray-100', 'cursor-not-allowed');
+            soThatTextarea.classList.remove('bg-gray-100', 'cursor-not-allowed');
+            
+            // Remover classe de restrição
+            epicSelect.parentElement.classList.remove('field-restricted');
+            asAInput.parentElement.classList.remove('field-restricted');
+            iWantTextarea.parentElement.classList.remove('field-restricted');
+            soThatTextarea.parentElement.classList.remove('field-restricted');
+        }
+        
+        console.log('Modal configurado, exibindo...');
+        console.log('=== FIM openEditStoryModal ===');
+        // Exibir modal
+        document.getElementById('editStoryModal').style.display = 'flex';
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+        
+        // Limpar formulários e mensagens quando modal é fechado
+        if (modalId === 'editStoryModal') {
+            const form = document.getElementById('editStoryForm');
+            if (form) form.reset();
+            
+            // Reabilitar campos que podem ter sido desabilitados
+            const fields = ['editStoryEpicSelect', 'editStoryAsA', 'editStoryIWant', 'editStorySoThat'];
+            fields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.disabled = false;
+                    field.removeAttribute('readonly');
+                    field.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                    
+                    // Limpar event listeners para select
+                    if (field.tagName === 'SELECT' && field.dataset.preventChange) {
+                        const preventChange = (e) => e.preventDefault();
+                        field.removeEventListener('change', preventChange);
+                        field.removeEventListener('mousedown', preventChange);
+                        delete field.dataset.preventChange;
+                    }
+                    
+                    // Remover classe de restrição do container pai
+                    if (field.parentElement) {
+                        field.parentElement.classList.remove('field-restricted');
+                    }
+                }
+            });
+            
+            // Ocultar alerta
+            const alert = document.getElementById('editStoryAlert');
+            if (alert) alert.classList.add('hidden');
+            
+            // Limpar mensagem
+            const message = document.getElementById('modal-message-edit-story');
+            if (message) message.style.display = 'none';
+        }
+        
+        if (modalId === 'createStoryModal') {
+            const form = document.getElementById('createStoryForm');
+            if (form) form.reset();
+            
+            // Limpar mensagem
+            const message = document.getElementById('modal-message-stories');
+            if (message) message.style.display = 'none';
+        }
+        
+        if (modalId === 'generateStoriesModal') {
+            const form = document.getElementById('generateStoriesForm');
+            if (form) form.reset();
+            
+            // Limpar mensagem
+            const message = document.getElementById('modal-message-stories');
+            if (message) message.style.display = 'none';
+        }
+    }
+
+    // Load epics for modal selects
+    async function loadEpicsForSelect(selectId) {
+        const epicSelect = document.getElementById(selectId);
+        epicSelect.innerHTML = '<option value="">Carregando épicos...</option>';
+
+        try {
+            const response = await authenticatedFetch('/epics/api/user', { method: 'GET' });
+            if (response.ok) {
+                const epics = await response.json();
+                epicSelect.innerHTML = '<option value="">Selecione um épico</option>';
+
+                epics.forEach(epic => {
+                    const option = document.createElement('option');
+                    option.value = epic.id;
+                    option.textContent = epic.title;
+                    epicSelect.appendChild(option);
+                });
+            } else {
+                const errorData = await response.json();
+                console.error('Erro ao carregar épicos para o select:', errorData);
+                epicSelect.innerHTML = '<option value="">Erro ao carregar épicos</option>';
+            }
+        } catch (error) {
+            console.error('Erro de rede ao carregar épicos para o select:', error);
+            epicSelect.innerHTML = '<option value="">Erro de conexão</option>';
+        }
+    }
+
+    // Generate stories function
+    async function generateStories(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const epicId = formData.get('epic_id');
+        const customPrompt = formData.get('custom_prompt');
+        const modalMessageDiv = document.getElementById('modal-message-stories');
+        const generateButton = form.querySelector('button[type="submit"]');
+
+        modalMessageDiv.style.display = 'none';
+        generateButton.disabled = true;
+        generateButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Gerando...';
+
+        if (!epicId) {
+            modalMessageDiv.style.display = 'block';
+            modalMessageDiv.style.backgroundColor = '#f8d7da';
+            modalMessageDiv.style.color = '#721c24';
+            modalMessageDiv.textContent = 'Por favor, selecione um épico.';
+            generateButton.disabled = false;
+            generateButton.innerHTML = '<i class="fas fa-magic mr-2"></i> Gerar Histórias';
+            return;
+        }
+
+        try {
+            const response = await authenticatedFetch(`/user-stories/generate/${epicId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ custom_prompt: customPrompt })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#d4edda';
+                modalMessageDiv.style.color = '#155724';
+                modalMessageDiv.textContent = data.message || 'Histórias geradas com sucesso!';
+                
+                setTimeout(() => {
+                    closeModal('generateStoriesModal');
+                    location.reload();
+                }, 2000);
+
+            } else {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#f8d7da';
+                modalMessageDiv.style.color = '#721c24';
+                modalMessageDiv.textContent = data.message || 'Erro ao gerar histórias.';
+                console.error('Erro na resposta da API ao gerar histórias:', data);
+            }
+        } catch (error) {
+            modalMessageDiv.style.display = 'block';
+            modalMessageDiv.style.backgroundColor = '#f8d7da';
+            modalMessageDiv.style.color = '#721c24';
+            modalMessageDiv.textContent = 'Ocorreu um erro de rede ou servidor ao gerar histórias.';
+            console.error('Erro de rede ao gerar histórias:', error);
+        } finally {
+            generateButton.disabled = false;
+            generateButton.innerHTML = '<i class="fas fa-magic mr-2"></i> Gerar Histórias';
+        }
+    }
+
+    // Create story function
+    async function createStory(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const epicId = formData.get('epic_id');
+        const asA = formData.get('as_a');
+        const iWant = formData.get('i_want');
+        const soThat = formData.get('so_that');
+        const priority = formData.get('priority');
+        const modalMessageDiv = document.getElementById('modal-message-stories');
+        const createButton = form.querySelector('button[type="submit"]');
+
+        modalMessageDiv.style.display = 'none';
+        createButton.disabled = true;
+        createButton.textContent = 'Criando...';
+
+        try {
+            const response = await authenticatedFetch('/user-stories', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ epic_id: epicId, as_a: asA, i_want: iWant, so_that: soThat, priority: priority })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#d4edda';
+                modalMessageDiv.style.color = '#155724';
+                modalMessageDiv.textContent = data.message || 'História criada com sucesso!';
+                
+                setTimeout(() => {
+                    closeModal('createStoryModal');
+                    location.reload();
+                }, 2000);
+
+            } else {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#f8d7da';
+                modalMessageDiv.style.color = '#721c24';
+                modalMessageDiv.textContent = data.message || 'Erro ao criar história.';
+                console.error('Erro na resposta da API ao criar história:', data);
+            }
+        } catch (error) {
+            modalMessageDiv.style.display = 'block';
+            modalMessageDiv.style.backgroundColor = '#f8d7da';
+            modalMessageDiv.style.color = '#721c24';
+            modalMessageDiv.textContent = 'Ocorreu um erro de rede ou servidor ao criar história.';
+            console.error('Erro de rede ao criar história:', error);
+        } finally {
+            createButton.disabled = false;
+            createButton.textContent = 'Criar História';
+        }
+    }
+
+    // Update story function
+    async function updateStory(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        const storyId = formData.get('story_id');
+        const status = formData.get('status');
+        const epicId = formData.get('epic_id');
+        const asA = formData.get('as_a');
+        const iWant = formData.get('i_want');
+        const soThat = formData.get('so_that');
+        const priority = formData.get('priority');
+        
+        const modalMessageDiv = document.getElementById('modal-message-edit-story');
+        const updateButton = form.querySelector('button[type="submit"]');
+
+        modalMessageDiv.style.display = 'none';
+        updateButton.disabled = true;
+        updateButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Salvando...';
+
+        try {
+            // Verificar novamente se há requisitos antes de enviar
+            console.log('Verificando requisitos antes de atualizar...');
+            const requirementsCheck = await authenticatedFetch(`/requirements/user-story/${storyId}`, { method: 'GET' });
+            let hasRequirementsCheck = false;
+            
+            if (requirementsCheck.ok) {
+                const requirements = await requirementsCheck.json();
+                hasRequirementsCheck = requirements && Array.isArray(requirements) && requirements.length > 0;
+            }
+            
+            console.log('Verificação de requisitos antes da atualização:', hasRequirementsCheck);
+            
+            const requestBody = {
+                status: status,
+                priority: priority
+            };
+            
+            // Só incluir campos editáveis se não estiverem desabilitados E se não houver requisitos
+            const epicSelect = document.getElementById('editStoryEpicSelect');
+            const allowFullEdit = !epicSelect.disabled && !hasRequirementsCheck;
+            
+            console.log('Permitir edição completa:', allowFullEdit);
+            console.log('Epic select disabled:', epicSelect.disabled);
+            
+            if (allowFullEdit) {
+                requestBody.epic_id = epicId;
+                requestBody.as_a = asA;
+                requestBody.i_want = iWant;
+                requestBody.so_that = soThat;
+                console.log('Incluindo todos os campos na atualização');
+            } else {
+                console.log('Limitando atualização apenas a status e prioridade');
+            }
+            
+            console.log('Dados finais para atualização:', requestBody);
+
+            const response = await authenticatedFetch(`/user-stories/${storyId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.className = 'mt-4 p-3 rounded-lg text-center bg-green-100 text-green-800';
+                modalMessageDiv.textContent = data.message || 'História atualizada com sucesso!';
+                
+                setTimeout(() => {
+                    closeModal('editStoryModal');
+                    location.reload();
+                }, 2000);
+
+            } else {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.className = 'mt-4 p-3 rounded-lg text-center bg-red-100 text-red-800';
+                modalMessageDiv.textContent = data.message || 'Erro ao atualizar história.';
+                console.error('Erro na resposta da API ao atualizar história:', data);
+            }
+        } catch (error) {
+            modalMessageDiv.style.display = 'block';
+            modalMessageDiv.className = 'mt-4 p-3 rounded-lg text-center bg-red-100 text-red-800';
+            modalMessageDiv.textContent = 'Ocorreu um erro de rede ou servidor ao atualizar história.';
+            console.error('Erro de rede ao atualizar história:', error);
+        } finally {
+            updateButton.disabled = false;
+            updateButton.innerHTML = '<i class="fas fa-save mr-2"></i> Salvar Alterações';
+        }
+    }
+
+    // Action functions (placeholders)
+    async function editStory(storyId) {
+        console.log('Editando história:', storyId);
+        
+        try {
+            // Carregar dados da história
+            const response = await authenticatedFetch(`/user-stories/${storyId}`, { method: 'GET' });
+            
+            if (!response.ok) {
+                throw new Error('Erro ao carregar dados da história');
+            }
+            
+            const storyData = await response.json();
+            console.log('Dados da história carregados:', storyData);
+            
+            // Verificar se há requisitos vinculados usando múltiplas abordagens
+            console.log('Verificando requisitos para história ID:', storyId);
+            let hasRequirements = false;
+            
+            // Método 1: Verificar via endpoint de contagem
+            try {
+                const countResponse = await authenticatedFetch(`/user-stories/${storyId}/requirements-count`, { method: 'GET' });
+                if (countResponse.ok) {
+                    const countData = await countResponse.json();
+                    const count = countData.count || 0;
+                    console.log('Contagem de requisitos (método 1):', count);
+                    if (count > 0) {
+                        hasRequirements = true;
+                    }
+                }
+            } catch (error) {
+                console.log('Erro no método 1 de verificação:', error);
+            }
+            
+            // Método 2: Verificar via endpoint de listagem (se método 1 não encontrou requisitos)
+            if (!hasRequirements) {
+                try {
+                    const requirementsResponse = await authenticatedFetch(`/requirements/user-story/${storyId}`, { method: 'GET' });
+                    console.log('Status da resposta de requisitos (método 2):', requirementsResponse.status);
+                    
+                    if (requirementsResponse.ok) {
+                        const requirements = await requirementsResponse.json();
+                        console.log('Requisitos encontrados (método 2):', requirements);
+                        hasRequirements = requirements && Array.isArray(requirements) && requirements.length > 0;
+                        console.log('HasRequirements calculado (método 2):', hasRequirements, 'com', requirements?.length || 0, 'requisitos');
+                    }
+                } catch (error) {
+                    console.log('Erro no método 2 de verificação:', error);
+                }
+            }
+            
+            // Método 3: Verificar contagem no elemento da página como fallback
+            if (!hasRequirements) {
+                const countElement = document.getElementById(`requirements-count-${storyId}`);
+                if (countElement) {
+                    const countText = countElement.textContent;
+                    const pageCount = parseInt(countText) || 0;
+                    console.log('Contagem na página (método 3):', pageCount);
+                    if (pageCount > 0) {
+                        hasRequirements = true;
+                        console.log('Usando contagem da página como fallback');
+                    }
+                }
+            }
+            
+            console.log('História tem requisitos (FINAL):', hasRequirements);
+            
+            // Abrir modal
+            await openEditStoryModal(storyData, hasRequirements);
+            
+        } catch (error) {
+            console.error('Erro ao carregar história para edição:', error);
+            showToast('Erro ao carregar dados da história', 'error');
+        }
+    }
+
+    function deleteStory(storyId) {
+        // Confirmar exclusão com o usuário
+        const confirmMessage = 'Tem certeza que deseja deletar esta história?\n\nATENÇÃO: Todos os requisitos vinculados a esta história também serão excluídos permanentemente.';
+        
+        if (confirm(confirmMessage)) {
+            deleteStoryConfirmed(storyId);
+        }
+    }
+
+    // Função para executar a exclusão após confirmação
+    async function deleteStoryConfirmed(storyId) {
+        try {
+            showToast('Excluindo história e requisitos...', 'info');
+            
+            const response = await authenticatedFetch(`/user-stories/${storyId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                showToast('História e requisitos excluídos com sucesso!', 'success');
+                
+                // Remover o card da história da interface
+                const storyCard = document.querySelector(`[data-id="${storyId}"]`);
+                if (storyCard) {
+                    storyCard.style.transition = 'all 0.3s ease';
+                    storyCard.style.opacity = '0';
+                    storyCard.style.transform = 'scale(0.95)';
+                    
+                    setTimeout(() => {
+                        storyCard.remove();
+                        // Atualizar contador
+                        allStories = Array.from(document.querySelectorAll('.story-item'));
+                        updateResultsCount();
+                    }, 300);
+                }
+            } else {
+                const errorData = await response.json();
+                showToast(errorData.message || 'Erro ao excluir história', 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao excluir história:', error);
+            showToast('Erro de conexão ao excluir história', 'error');
+        }
+    }
+
+    // Função auxiliar para buscar contagem de requisitos com retry
+    async function getRequirementsCountWithRetry(storyId, maxRetries = 3, delay = 800) {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`Tentativa ${attempt} de buscar contagem de requisitos para história ${storyId}`);
+                
+                const response = await authenticatedFetch(`/user-stories/${storyId}/requirements-count`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const count = data.count || 0;
+                    console.log(`Contagem obtida na tentativa ${attempt}: ${count}`);
+                    return count;
+                } else {
+                    console.warn(`Tentativa ${attempt} falhou com status:`, response.status);
+                }
+            } catch (error) {
+                console.warn(`Tentativa ${attempt} falhou com erro:`, error);
+            }
+            
+            // Aguardar antes da próxima tentativa (exceto na última)
+            if (attempt < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay = delay * 1.5; // Aumentar delay progressivamente
+            }
+        }
+        
+        console.error(`Falha ao obter contagem após ${maxRetries} tentativas`);
+        return null;
+    }
+
+    // Gerar requisitos automaticamente para uma história
+    async function generateRequirements(storyId) {
+        const requirementsCountElement = document.getElementById(`requirements-count-${storyId}`);
+        const storyCard = document.querySelector(`[data-id="${storyId}"]`);
+        const originalText = requirementsCountElement.textContent;
+        const previousCount = parseInt(originalText) || 0;
+        
+        if (!requirementsCountElement || !storyCard) {
+            console.error('Elementos não encontrados para história:', storyId);
+            return;
+        }
+
+        try {
+            // Feedback visual imediato - estado de loading
+            requirementsCountElement.textContent = '...';
+            requirementsCountElement.classList.add('stat-loading');
+            
+            // Adicionar classe de highlight no card de requisitos
+            const requirementsCard = storyCard.querySelector('.stat-card-requirements');
+            if (requirementsCard) {
+                requirementsCard.classList.add('generating-requirements');
+            }
+
+            // Adicionar efeito shimmer ao card inteiro
+            storyCard.classList.add('generating-requirements');
+
+            // Feedback visual com toast notification
+            showToast('Gerando requisitos com IA...', 'info');
+
+            // Fazer a chamada para gerar requisitos
+            const response = await authenticatedFetch(`/requirements/generate/${storyId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ custom_prompt: '' })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Atualizar toast para mostrar que está verificando
+                showToast('Requisitos gerados! Atualizando contagem...', 'info');
+                
+                // Aguardar um pouco e buscar a contagem real atual
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Tentar buscar contagem atual com retry para garantir que BD foi atualizado
+                const actualNewCount = await getRequirementsCountWithRetry(storyId, 3);
+                
+                if (actualNewCount !== null) {
+                    // Animação de contagem crescente com contagem real
+                    animateCounter(requirementsCountElement, previousCount, actualNewCount);
+                    
+                    // Feedback de sucesso baseado na contagem real
+                    const generatedCount = actualNewCount - previousCount;
+                    let message;
+                    
+                    if (generatedCount > 0) {
+                        message = `${generatedCount} novo(s) requisito(s) gerado(s)! Total: ${actualNewCount}`;
+                    } else if (actualNewCount > 0) {
+                        message = `${actualNewCount} requisito(s) já existem para esta história`;
+                    } else {
+                        message = 'Geração concluída - verificar se foram criados requisitos';
+                    }
+                    
+                    showToast(message, 'success');
+                    
+                } else {
+                    // Fallback para resposta da API de geração
+                    const apiCount = data.requirements_generated || data.count || 0;
+                    animateCounter(requirementsCountElement, previousCount, Math.max(previousCount, apiCount));
+                    showToast(`Requisitos processados! Recarregando contagem...`, 'success');
+                    
+                    // Tentar atualizar a contagem após mais um tempo
+                    setTimeout(() => {
+                        updateRequirementsCount(storyId);
+                    }, 2000);
+                }
+                
+                // Highlight no card de requisitos por alguns segundos
+                setTimeout(() => {
+                    if (requirementsCard) {
+                        requirementsCard.classList.remove('generating-requirements');
+                        requirementsCard.classList.add('requirements-updated');
+                        
+                        // Remover highlight após animação
+                        setTimeout(() => {
+                            requirementsCard.classList.remove('requirements-updated');
+                        }, 2000);
+                    }
+                }, 500);
+
+            } else {
+                // Erro - restaurar contador e mostrar erro
+                requirementsCountElement.textContent = originalText;
+                showToast(data.message || 'Erro ao gerar requisitos', 'error');
+                console.error('Erro na resposta da API ao gerar requisitos:', data);
+            }
+        } catch (error) {
+            // Erro de rede - restaurar contador
+            requirementsCountElement.textContent = originalText;
+            showToast('Erro de conexão ao gerar requisitos', 'error');
+            console.error('Erro de rede ao gerar requisitos:', error);
+        } finally {
+            // Remover estado de loading e efeitos
+            requirementsCountElement.classList.remove('stat-loading');
+            storyCard.classList.remove('generating-requirements');
+            
+            // Garantir limpeza de classes
+            const requirementsCard = storyCard.querySelector('.stat-card-requirements');
+            if (requirementsCard) {
+                requirementsCard.classList.remove('generating-requirements');
+            }
+        }
+    }
+
+    // Animação para contador crescente
+    function animateCounter(element, fromValue, toValue) {
+        const duration = 800; // ms
+        const steps = 20;
+        const stepTime = duration / steps;
+        const stepValue = (toValue - fromValue) / steps;
+        let currentValue = fromValue;
+        let currentStep = 0;
+
+        const interval = setInterval(() => {
+            currentStep++;
+            currentValue += stepValue;
+            
+            if (currentStep >= steps) {
+                element.textContent = toValue;
+                clearInterval(interval);
+            } else {
+                element.textContent = Math.round(currentValue);
+            }
+        }, stepTime);
+    }
+
+    // Sistema de notificações toast
+    function showToast(message, type = 'info') {
+        // Remover toasts existentes
+        const existingToasts = document.querySelectorAll('.toast-notification');
+        existingToasts.forEach(toast => toast.remove());
+
+        // Criar novo toast
+        const toast = document.createElement('div');
+        toast.className = `toast-notification fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-medium max-w-sm transition-all duration-300 transform translate-x-full`;
+        
+        // Definir cor baseada no tipo
+        switch (type) {
+            case 'success':
+                toast.classList.add('bg-green-500');
+                break;
+            case 'error':
+                toast.classList.add('bg-red-500');
+                break;
+            case 'info':
+            default:
+                toast.classList.add('bg-blue-500');
+                break;
+        }
+
+        // Adicionar ícone baseado no tipo
+        let icon = '';
+        switch (type) {
+            case 'success':
+                icon = '<i class="fas fa-check-circle mr-2"></i>';
+                break;
+            case 'error':
+                icon = '<i class="fas fa-exclamation-circle mr-2"></i>';
+                break;
+            case 'info':
+            default:
+                icon = '<i class="fas fa-info-circle mr-2"></i>';
+                break;
+        }
+
+        toast.innerHTML = `
+            <div class="flex items-center">
+                ${icon}
+                <span>${message}</span>
+            </div>
+        `;
+
+        // Adicionar ao DOM
+        document.body.appendChild(toast);
+
+        // Animar entrada
+        setTimeout(() => {
+            toast.classList.remove('translate-x-full');
+        }, 100);
+
+        // Remover automaticamente após 4 segundos
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 300);
+        }, 4000);
+    }
+
+    // Load requirements count for each story
+    async function loadRequirementsCounts() {
+        const storyCards = document.querySelectorAll('.story-item');
+        
+        for (const card of storyCards) {
+            const storyId = card.dataset.id;
+            const requirementsCountElement = document.getElementById(`requirements-count-${storyId}`);
+            
+            if (requirementsCountElement) {
+                try {
+                    requirementsCountElement.textContent = '...';
+                    requirementsCountElement.classList.add('stat-loading');
+                    
+                    const response = await authenticatedFetch(`/user-stories/${storyId}/requirements-count`);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        requirementsCountElement.textContent = data.count || 0;
+                        
+                        // Add pulse animation for updated stats
+                        const statCard = requirementsCountElement.closest('.stat-card-requirements');
+                        if (statCard) {
+                            statCard.classList.add('requirements-updated');
+                            setTimeout(() => {
+                                statCard.classList.remove('requirements-updated');
+                            }, 1000);
+                        }
+                    } else {
+                        console.error(`Erro ao carregar contagem de requisitos para história ${storyId}: ${response.status}`);
+                        requirementsCountElement.textContent = '0';
+                    }
+                } catch (error) {
+                    console.error(`Erro ao carregar contagem de requisitos para história ${storyId}:`, error);
+                    requirementsCountElement.textContent = '0';
+                } finally {
+                    requirementsCountElement.classList.remove('stat-loading');
+                }
+            }
+        }
+    }
+
+    // Initialize page functions
+    document.addEventListener('DOMContentLoaded', function() {
+        filterStories();
+        loadRequirementsCounts();
+        
+        // Initialize search input focus
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('focus', function() {
+                this.parentElement.classList.add('search-focused');
+            });
+            
+            searchInput.addEventListener('blur', function() {
+                this.parentElement.classList.remove('search-focused');
+            });
+        }
+
+        // Auto-refresh contadores quando a página volta ao foco
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                // Página voltou ao foco - atualizar contadores
+                setTimeout(() => {
+                    refreshAllRequirementsCounts();
+                }, 500);
+            }
+        });
+
+        // Auto-refresh periódico (a cada 30 segundos se a página estiver visível)
+        setInterval(() => {
+            if (!document.hidden) {
+                refreshAllRequirementsCounts();
+            }
+        }, 30000);
+    });
+
+    // Função para recarregar todos os contadores
+    function refreshAllRequirementsCounts() {
+        loadRequirementsCounts();
+    }
+
+    // Função para atualizar contador específico
+    async function updateRequirementsCount(storyId) {
+        const requirementsCountElement = document.getElementById(`requirements-count-${storyId}`);
+        const storyCard = document.querySelector(`[data-id="${storyId}"]`);
+        
+        if (!requirementsCountElement || !storyCard) return;
+
+        try {
+            const previousCount = parseInt(requirementsCountElement.textContent) || 0;
+            requirementsCountElement.classList.add('stat-loading');
+            
+            const response = await authenticatedFetch(`/user-stories/${storyId}/requirements-count`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                const newCount = data.count || 0;
+                
+                if (newCount !== previousCount) {
+                    animateCounter(requirementsCountElement, previousCount, newCount);
+                    
+                    if (newCount > previousCount) {
+                        const requirementsCard = storyCard.querySelector('.stat-card-requirements');
+                        if (requirementsCard) {
+                            requirementsCard.classList.add('requirements-updated');
+                            setTimeout(() => {
+                                requirementsCard.classList.remove('requirements-updated');
+                            }, 2000);
+                        }
+                    }
+                } else {
+                    requirementsCountElement.textContent = newCount;
+                }
+            }
+        } catch (error) {
+            console.error(`Erro ao atualizar contagem de requisitos:`, error);
+        } finally {
+            requirementsCountElement.classList.remove('stat-loading');
+        }
+    }
+</script>
+{% endblock %}

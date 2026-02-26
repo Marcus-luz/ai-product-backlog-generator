@@ -1,0 +1,722 @@
+<!-- app/templates/products.html -->
+
+{% extends "base.html" %}
+
+{% block title %}Produtos - AI Product Owner{% endblock %}
+
+{% block head %}
+<style>
+    /* Estilos específicos para a página de produtos */
+    .product-item {
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .product-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    
+    .product-item.filtered-out {
+        opacity: 0;
+        transform: scale(0.95);
+        pointer-events: none;
+    }
+    
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Animação para os ícones */
+    .btn-icon {
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+        transition: all 0.2s ease;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-icon:hover {
+        transform: scale(1.1);
+    }
+
+    /* Melhoria no input de pesquisa */
+    #searchInput:focus {
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    /* Estilo para badges */
+    .badge-info {
+        background-color: #dbeafe;
+        color: #1e40af;
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        font-weight: 600;
+    }
+
+    /* Animação suave para grid */
+    #productsGrid {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Loading state para busca */
+    .search-loading {
+        position: relative;
+    }
+
+    .search-loading::after {
+        content: '';
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 16px;
+        border: 2px solid #e5e7eb;
+        border-top: 2px solid #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: translateY(-50%) rotate(0deg); }
+        100% { transform: translateY(-50%) rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="p-8">
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Meus Produtos</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-2">Gerencie todos os produtos que você cadastrou.</p>
+        </div>
+        <button onclick="openCreateProductModal()" class="btn-primary">
+            <i class="fas fa-plus mr-2"></i>
+            Novo Produto
+        </button>
+    </div>
+
+    <!-- Barra de Pesquisa e Filtros -->
+    <div class="stat-card mb-8">
+        <!-- Header da Seção de Filtros -->
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-filter text-blue-600 dark:text-blue-400"></i>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Filtros e Pesquisa</h2>
+            </div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                <span id="resultsCount">{{ products_data|length if products_data else 0 }}</span> produto(s) encontrado(s)
+            </div>
+        </div>
+
+        <!-- Controles de Filtro -->
+        <div class="space-y-4">
+            <!-- Campo de Pesquisa -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-search mr-1"></i>
+                    Buscar Produtos
+                </label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400 dark:text-gray-500"></i>
+                    </div>
+                    <input type="text" 
+                           id="searchInput" 
+                           placeholder="Pesquisar por nome, descrição, proposta de valor ou plataformas..." 
+                           class="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                           autocomplete="off">
+                </div>
+            </div>
+            
+            <!-- Filtros e Ações -->
+            <div class="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
+                <!-- Ordenação -->
+                <div class="flex items-center gap-3">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <i class="fas fa-sort mr-1"></i>
+                        Ordenar por:
+                    </label>
+                    <select id="sortOrder" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-white min-w-[150px]">
+                        <option value="newest">📅 Mais Recentes</option>
+                        <option value="oldest">📅 Mais Antigos</option>
+                        <option value="name-asc">🔤 Nome (A-Z)</option>
+                        <option value="name-desc">🔤 Nome (Z-A)</option>
+                    </select>
+                </div>
+                
+                <!-- Botão Limpar -->
+                <button onclick="clearFilters()" class="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                    <i class="fas fa-eraser"></i>
+                    <span>Limpar Filtros</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Produtos -->
+    <div id="productsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% if products_data %}
+            {% for product in products_data %}
+            <div class="product-item project-card group hover:shadow-md transition-all duration-200 cursor-pointer" 
+                 data-name="{{ product.name|lower }}"
+                 data-description="{{ product.description|lower }}"
+                 data-value-proposition="{{ product.value_proposition|lower }}"
+                 data-channels="{{ product.channels_platforms|lower }}"
+                 data-created="{{ product.created_at_raw }}"
+                 data-id="{{ product.id }}"
+                 onclick="navigateWithToken('{{ url_for('product_bp.product_detail', product_id=product.id) }}')">
+                
+                <!-- Header do Card -->
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 line-clamp-2">
+                            {{ product.name }}
+                        </h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            <i class="fas fa-calendar-alt mr-1"></i>
+                            Criado em {{ product.created_at if product.created_at else 'N/A' }}
+                        </p>
+                    </div>
+                    <span class="badge badge-info ml-2 flex-shrink-0">
+                        #{{ product.id }}
+                    </span>
+                </div>
+                
+                <!-- Descrição -->
+                <div class="mb-4">
+                    <p class="text-gray-600 dark:text-gray-400 text-sm line-clamp-3 leading-relaxed">
+                        {{ product.description }}
+                    </p>
+                </div>
+                
+                <!-- Detalhes do Produto -->
+                <div class="space-y-3 mb-4">
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                        <div class="flex items-start gap-2">
+                            <i class="fas fa-lightbulb text-yellow-500 dark:text-yellow-400 mt-0.5 flex-shrink-0"></i>
+                            <div class="flex-1">
+                                <span class="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide">Proposta de Valor</span>
+                                <p class="text-gray-600 dark:text-gray-400 text-sm mt-1 line-clamp-2">{{ product.value_proposition }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+                        <div class="flex items-start gap-2">
+                            <i class="fas fa-desktop text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0"></i>
+                            <div class="flex-1">
+                                <span class="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide">Plataformas</span>
+                                <p class="text-gray-600 dark:text-gray-400 text-sm mt-1">{{ product.channels_platforms }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer do Card com Ações -->
+                <div class="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-gray-600">
+                    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <i class="fas fa-eye"></i>
+                        <span>Clique para detalhes</span>
+                    </div>
+                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <button onclick="event.stopPropagation(); editProduct({{ product.id }})" 
+                                class="btn-icon text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20" 
+                                title="Editar Produto">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="event.stopPropagation(); deleteProduct({{ product.id }})" 
+                                class="btn-icon text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" 
+                                title="Excluir Produto">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <!-- Estado Vazio - Nenhum Produto -->
+            <div id="noProductsMessage" class="col-span-full">
+                <div class="text-center py-12">
+                    <div class="mx-auto w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-6">
+                        <i class="fas fa-box-open text-gray-400 dark:text-gray-500 text-3xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Nenhum produto encontrado</h3>
+                    <p class="text-gray-600 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+                        Você ainda não criou nenhum produto. Comece criando seu primeiro produto agora!
+                    </p>
+                    <button onclick="openCreateProductModal()" class="btn-primary">
+                        <i class="fas fa-plus mr-2"></i>
+                        Criar Primeiro Produto
+                    </button>
+                </div>
+            </div>
+        {% endif %}
+        
+        <!-- Estado Vazio - Nenhum Resultado de Busca -->
+        <div id="noResultsMessage" class="col-span-full" style="display: none;">
+            <div class="text-center py-12">
+                <div class="mx-auto w-24 h-24 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-6">
+                    <i class="fas fa-search text-blue-400 dark:text-blue-400 text-3xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Nenhum resultado encontrado</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+                    Não encontramos produtos que correspondam aos seus critérios de busca. Tente termos diferentes.
+                </p>
+                <div class="flex gap-3 justify-center">
+                    <button onclick="clearFilters()" class="btn-primary">
+                        <i class="fas fa-eraser mr-2"></i>
+                        Limpar Filtros
+                    </button>
+                    <button onclick="openCreateProductModal()" class="btn-secondary">
+                        <i class="fas fa-plus mr-2"></i>
+                        Novo Produto
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modais de Produto (Reutilizados do Dashboard, mas aqui para a página de produtos) -->
+    <!-- Create Product Modal -->
+    <div id="createProductModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="text-xl font-semibold dark:text-white">Criar Novo Produto</h2>
+                <button onclick="closeModal('createProductModal')" class="modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="createProductForm" onsubmit="createProduct(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="productName" class="dark:text-gray-300">Nome do Produto *</label>
+                        <input type="text" id="productName" name="name" required 
+                               placeholder="Ex: App de Delivery, Sistema CRM..."
+                               class="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="productDescription" class="dark:text-gray-300">Descrição *</label>
+                        <textarea id="productDescription" name="description" required rows="3"
+                                  placeholder="Descreva brevemente o que o produto faz..."
+                                  class="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="valueProposition" class="dark:text-gray-300">Proposta de Valor *</label>
+                        <textarea id="valueProposition" name="value_proposition" required rows="3"
+                                  placeholder="Que problema este produto resolve?"
+                                  class="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="channels_platforms" class="dark:text-gray-300">Plataformas *</label>
+                        <textarea id="channels_platforms" name="channels_platforms" required rows="1"
+                                  placeholder="Quais plataformas o sistema irá suportar? (ex: Web, Mobile)"
+                                  class="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"></textarea>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" onclick="closeModal('createProductModal')" class="btn-secondary">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn-primary">
+                        Criar Produto
+                    </button>
+                </div>
+            </form>
+            <div id="modal-message" class="mt-4 p-3 rounded-lg text-center" style="display: none;"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Array para armazenar produtos originais para filtragem
+    let allProducts = [];
+    let searchTimeout;
+
+    // Inicializar produtos ao carregar a página
+    document.addEventListener('DOMContentLoaded', function() {
+        allProducts = Array.from(document.querySelectorAll('.product-item'));
+        updateResultsCount();
+        
+        // Adicionar evento de busca em tempo real com debounce
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(filterProducts, 300); // Debounce de 300ms
+        });
+        
+        // Adicionar evento para Enter
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimeout);
+                filterProducts();
+            }
+        });
+
+        // Adicionar evento para ordenação automática
+        document.getElementById('sortOrder').addEventListener('change', sortProducts);
+    });
+
+    // Função de filtragem de produtos aprimorada com feedback visual
+    function filterProducts() {
+        const searchInput = document.getElementById('searchInput');
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const productsGrid = document.getElementById('productsGrid');
+        const noResultsMessage = document.getElementById('noResultsMessage');
+        const noProductsMessage = document.getElementById('noProductsMessage');
+        let visibleCount = 0;
+
+        // Adicionar classe de loading
+        searchInput.classList.add('search-loading');
+
+        // Simular pequeno delay para mostrar loading (opcional)
+        setTimeout(() => {
+            allProducts.forEach(product => {
+                const name = product.getAttribute('data-name') || '';
+                const description = product.getAttribute('data-description') || '';
+                const valueProposition = product.getAttribute('data-value-proposition') || '';
+                const channels = product.getAttribute('data-channels') || '';
+
+                // Buscar em todos os campos relevantes
+                const searchableText = `${name} ${description} ${valueProposition} ${channels}`;
+                
+                let matches = false;
+                if (searchTerm === '') {
+                    matches = true;
+                } else {
+                    // Busca por palavras individuais (AND logic)
+                    const searchWords = searchTerm.split(' ').filter(word => word.length > 0);
+                    matches = searchWords.every(word => searchableText.includes(word));
+                }
+
+                if (matches) {
+                    product.style.display = 'block';
+                    product.classList.remove('filtered-out');
+                    visibleCount++;
+                } else {
+                    product.style.display = 'none';
+                    product.classList.add('filtered-out');
+                }
+            });
+
+            // Mostrar/ocultar mensagens
+            if (noProductsMessage) noProductsMessage.style.display = 'none';
+            
+            if (visibleCount === 0 && searchTerm !== '') {
+                noResultsMessage.style.display = 'block';
+            } else {
+                noResultsMessage.style.display = 'none';
+            }
+
+            updateResultsCount();
+            
+            // Remover classe de loading
+            searchInput.classList.remove('search-loading');
+        }, 150);
+    }
+
+    // Função de ordenação aprimorada
+    function sortProducts() {
+        const sortOrder = document.getElementById('sortOrder').value;
+        const productsGrid = document.getElementById('productsGrid');
+        
+        // Converter NodeList para Array para poder ordenar
+        const productItems = Array.from(document.querySelectorAll('.product-item'));
+        
+        productItems.sort((a, b) => {
+            switch (sortOrder) {
+                case 'newest':
+                    // Ordenar por data de criação (mais recente primeiro)
+                    const dateA = new Date(a.getAttribute('data-created') || '1970-01-01');
+                    const dateB = new Date(b.getAttribute('data-created') || '1970-01-01');
+                    return dateB - dateA;
+                case 'oldest':
+                    // Ordenar por data de criação (mais antigo primeiro)
+                    const dateC = new Date(a.getAttribute('data-created') || '1970-01-01');
+                    const dateD = new Date(b.getAttribute('data-created') || '1970-01-01');
+                    return dateC - dateD;
+                case 'name-asc':
+                    // Ordenar por nome (A-Z)
+                    const nameA = (a.getAttribute('data-name') || '').toLowerCase();
+                    const nameB = (b.getAttribute('data-name') || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                case 'name-desc':
+                    // Ordenar por nome (Z-A)
+                    const nameC = (a.getAttribute('data-name') || '').toLowerCase();
+                    const nameD = (b.getAttribute('data-name') || '').toLowerCase();
+                    return nameD.localeCompare(nameC);
+                default:
+                    return 0;
+            }
+        });
+
+        // Limpar grid e reordenar elementos
+        productsGrid.innerHTML = '';
+        productItems.forEach(item => {
+            productsGrid.appendChild(item);
+        });
+
+        updateResultsCount();
+    }
+
+    // Limpar filtros e restaurar estado inicial
+    function clearFilters() {
+        // Limpar campos
+        document.getElementById('searchInput').value = '';
+        document.getElementById('sortOrder').value = 'newest';
+        
+        // Parar qualquer busca pendente
+        clearTimeout(searchTimeout);
+        
+        // Mostrar todos os produtos
+        allProducts.forEach(product => {
+            product.style.display = 'block';
+            product.classList.remove('filtered-out');
+        });
+
+        // Ocultar mensagem de "nenhum resultado"
+        document.getElementById('noResultsMessage').style.display = 'none';
+        
+        // Reordenar para ordem padrão (mais recentes)
+        sortProducts();
+        updateResultsCount();
+    }
+
+    // Atualizar contador de resultados
+    function updateResultsCount() {
+        const visibleProducts = allProducts.filter(product => 
+            product.style.display !== 'none'
+        ).length;
+        
+        document.getElementById('resultsCount').textContent = visibleProducts;
+    }
+
+    // Funções de Modal (reutilizadas de main.js, mas aqui para garantir que existem)
+    function openCreateProductModal() {
+        document.getElementById('createProductModal').style.display = 'flex';
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    // Função para Criar Produto
+    async function createProduct(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+        const modalMessageDiv = document.getElementById('modal-message');
+        const createButton = form.querySelector('button[type="submit"]');
+
+        modalMessageDiv.style.display = 'none';
+        createButton.disabled = true;
+        createButton.textContent = 'Criando...';
+
+        try {
+            const response = await authenticatedFetch('/products', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#d4edda';
+                modalMessageDiv.style.color = '#155724';
+                modalMessageDiv.textContent = 'Produto criado com sucesso!';
+                
+                setTimeout(() => {
+                    closeModal('createProductModal');
+                    location.reload(); // Recarrega a página para ver o novo produto
+                }, 2000);
+
+            } else {
+                const errorData = await response.json();
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#f8d7da';
+                modalMessageDiv.style.color = '#721c24';
+                modalMessageDiv.textContent = errorData.message || 'Erro ao criar produto.';
+                console.error('Erro na resposta da API ao criar produto:', errorData);
+            }
+        } catch (error) {
+            modalMessageDiv.style.display = 'block';
+            modalMessageDiv.style.backgroundColor = '#f8d7da';
+            modalMessageDiv.style.color = '#721c24';
+            modalMessageDiv.textContent = 'Ocorreu um erro de rede ou servidor ao criar produto.';
+            console.error('Erro de rede ao criar produto:', error);
+        } finally {
+            createButton.disabled = false;
+            createButton.textContent = 'Criar Produto';
+        }
+    }
+
+    // Funções de Ação para cada produto
+    function editProduct(productId) {
+        alert('Funcionalidade de edição em desenvolvimento. Produto ID: ' + productId);
+        // TODO: Implementar modal de edição
+    }
+
+    async function deleteProduct(productId) {
+        const confirmMessage = 'Tem certeza que deseja deletar este produto?\n\nATENÇÃO: Todos os épicos, histórias de usuário e requisitos vinculados a este produto também serão excluídos permanentemente.\n\nEsta ação não pode ser desfeita.';
+        
+        if (confirm(confirmMessage)) {
+            try {
+                showToast('Excluindo produto e todos os dados relacionados...', 'info');
+                
+                const response = await authenticatedFetch(`/products/${productId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (response.ok) {
+                    showToast('Produto e todos os dados relacionados excluídos com sucesso!', 'success');
+                    
+                    // Remover o card do produto da interface
+                    const productCard = document.querySelector(`[data-id="${productId}"]`);
+                    if (productCard) {
+                        productCard.style.transition = 'all 0.3s ease';
+                        productCard.style.opacity = '0';
+                        productCard.style.transform = 'scale(0.95)';
+                        
+                        setTimeout(() => {
+                            productCard.remove();
+                            // Atualizar contador
+                            allProducts = Array.from(document.querySelectorAll('.product-item'));
+                            updateResultsCount();
+                            
+                            // Verificar se não há mais produtos
+                            if (allProducts.length === 0) {
+                                const noProductsMessage = document.getElementById('noProductsMessage');
+                                if (noProductsMessage) {
+                                    noProductsMessage.style.display = 'block';
+                                }
+                            }
+                        }, 300);
+                    }
+                } else {
+                    const errorData = await response.json();
+                    showToast(errorData.message || 'Erro ao excluir produto', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao excluir produto:', error);
+                showToast('Erro de conexão ao excluir produto', 'error');
+            }
+        }
+    }
+
+    // Sistema de notificações toast (se não existir)
+    function showToast(message, type = 'info') {
+        // Remover toasts existentes
+        const existingToasts = document.querySelectorAll('.toast-notification');
+        existingToasts.forEach(toast => toast.remove());
+
+        // Criar novo toast
+        const toast = document.createElement('div');
+        toast.className = `toast-notification fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-medium max-w-sm transition-all duration-300 transform translate-x-full`;
+        
+        // Definir cor baseada no tipo
+        switch (type) {
+            case 'success':
+                toast.classList.add('bg-green-500');
+                break;
+            case 'error':
+                toast.classList.add('bg-red-500');
+                break;
+            case 'info':
+            default:
+                toast.classList.add('bg-blue-500');
+                break;
+        }
+
+        // Adicionar ícone baseado no tipo
+        let icon = '';
+        switch (type) {
+            case 'success':
+                icon = '<i class="fas fa-check-circle mr-2"></i>';
+                break;
+            case 'error':
+                icon = '<i class="fas fa-exclamation-circle mr-2"></i>';
+                break;
+            case 'info':
+            default:
+                icon = '<i class="fas fa-info-circle mr-2"></i>';
+                break;
+        }
+
+        toast.innerHTML = `
+            <div class="flex items-center">
+                ${icon}
+                <span>${message}</span>
+            </div>
+        `;
+
+        // Adicionar ao DOM
+        document.body.appendChild(toast);
+
+        // Animar entrada
+        setTimeout(() => {
+            toast.classList.remove('translate-x-full');
+        }, 100);
+
+        // Remover automaticamente após 4 segundos
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 300);
+        }, 4000);
+    }
+
+    function updateResultsCount() {
+        const resultsCount = document.getElementById('resultsCount');
+        if (resultsCount && allProducts) {
+            const visibleCount = allProducts.filter(product => !product.classList.contains('hidden')).length;
+            resultsCount.textContent = visibleCount;
+        }
+    }
+</script>
+{% endblock %}

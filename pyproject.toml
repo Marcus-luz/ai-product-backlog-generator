@@ -1,0 +1,29 @@
+# pyproject.toml
+
+[project]
+name = "problema-4"
+version = "0.1.0"
+description = "Ferramentas de apoio ao projeto"
+authors = [
+    {name = "alessandro",email = "alessandrooliveira.aluno@unipampa.edu.br"}
+]
+readme = "README.md"
+package-mode = false # Manter esta linha
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "flask (>=3.1.1,<4.0.0)",
+    "flask-sqlalchemy (>=3.1.1,<4.0.0)",
+    "psycopg2-binary (>=2.9.10,<3.0.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)",
+    "flask-login (>=0.6.3,<0.7.0)",
+    "groq (>=0.29.0,<0.30.0)",
+    "flask-jwt-extended (>=4.7.1,<5.0.0)",
+    "flask-migrate (>=4.1.0,<5.0.0)",
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+alembic = "^1.16.2"

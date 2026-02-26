@@ -1,0 +1,1472 @@
+<!-- app/templates/requirements.html -->
+
+{% extends "base.html" %}
+
+{% block title %}Requisitos - AI Product Owner{% endblock %}
+
+{% block head %}
+<style>
+      <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Requisitos</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-2">
+                <span id="requirementsCounter">{{ requirements_data|length if requirements_data else 0 }}</span> 
+                requisito(s) encontrado(s)
+            </p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="openGenerateRequirementsModal()" class="btn-primary">
+                <i class="fas fa-magic mr-2"></i>
+                Gerar com IA
+            </button>
+            <button onclick="openCreateRequirementModal()" class="btn-secondary">
+                <i class="fas fa-plus mr-2"></i>
+                Novo Requisito
+            </button>
+        </div>
+    </div>ecíficos para a página de requisitos */
+    .requirement-item {
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .requirement-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    
+    .requirement-item.filtered-out {
+        opacity: 0;
+        transform: scale(0.95);
+        pointer-events: none;
+    }
+    
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Animação para os ícones */
+    .btn-icon {
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+        transition: all 0.2s ease;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+    }
+
+    .btn-icon:hover {
+        transform: scale(1.1);
+    }
+
+    /* Loading state para busca */
+    .search-loading {
+        position: relative;
+    }
+
+    .search-loading::after {
+        content: '';
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 16px;
+        border: 2px solid #e5e7eb;
+        border-top: 2px solid #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: translateY(-50%) rotate(0deg); }
+        100% { transform: translateY(-50%) rotate(360deg); }
+    }
+
+    /* Animação suave para grid */
+    #requirements-list {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Estilos específicos para badges de status */
+    .badge-draft {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge-active {
+        background-color: #dcfce7;
+        color: #166534;
+    }
+
+    .badge-review {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .badge-approved {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .badge-done {
+        background-color: #e0e7ff;
+        color: #3730a3;
+    }
+
+    /* Badges de prioridade */
+    .badge-critical {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+
+    .badge-high {
+        background-color: #fed7aa;
+        color: #ea580c;
+    }
+
+    .badge-medium {
+        background-color: #fef3c7;
+        color: #d97706;
+    }
+
+    .badge-low {
+        background-color: #dcfce7;
+        color: #16a34a;
+    }
+
+    /* Animação de hover nos cards */
+    .requirement-card-hover {
+        transition: all 0.2s ease;
+    }
+
+    .requirement-card-hover:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="p-8">
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Requisitos</h1>
+            {% if filtered_by_story %}
+            <div class="flex items-center gap-2 mt-2">
+                <p class="text-gray-600">Filtrado por história:</p>
+                <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                    {{ story_title_filter }}
+                </span>
+                <button onclick="clearStoryFilter()" class="text-blue-600 hover:text-blue-800 text-sm underline">
+                    Remover filtro
+                </button>
+            </div>
+            {% else %}
+            <p class="text-gray-600 mt-2">Gerencie requisitos funcionais e não-funcionais</p>
+            {% endif %}
+        </div>
+        <div class="flex gap-3">
+            <button onclick="openGenerateRequirementsModal()" class="btn-primary"> {# <--- CORRIGIDO O ONCLICK #}
+                <i class="fas fa-magic mr-2"></i>
+                Gerar com IA
+            </button>
+            <button onclick="openCreateRequirementModal()" class="btn-primary"> {# <--- NOVO ONCLICK #}
+                <i class="fas fa-plus mr-2"></i>
+                Novo Requisito
+            </button>
+        </div>
+    </div>
+
+    <!-- Barra de Pesquisa e Filtros -->
+    <div class="bg-white dark:bg-gray-700 rounded-lg shadow-sm border dark:border-gray-600 p-6 mb-6">
+        <!-- Header da Seção de Filtros -->
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-filter text-blue-600 dark:text-blue-400"></i>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Filtros e Pesquisa</h2>
+            </div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                <span id="resultsCount">
+                    <span class="font-medium" id="requirementsCounter">0</span> de <span id="totalCount">{{ requirements_data|length if requirements_data else 0 }}</span> requisitos
+                </span>
+            </div>
+        </div>
+
+        <!-- Controles de Filtro -->
+        <div class="space-y-4">
+            <!-- Campo de Pesquisa -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-search mr-1"></i>
+                    Buscar requisitos
+                </label>
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500"></i>
+                    <input type="text" id="searchInput" placeholder="Buscar por descrição, história associada..." 
+                           class="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400">
+                    <div id="searchClear" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 cursor-pointer hidden hover:text-gray-600 dark:hover:text-gray-300" onclick="clearSearch()">
+                        <i class="fas fa-times"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filtros e Ações -->
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <!-- Filtro por História -->
+                <div class="flex flex-col">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <i class="fas fa-book-open mr-1"></i>História
+                    </label>
+                    <select id="storyFilter" class="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                        <option value="all">📚 Todas as Histórias</option>
+                        <!-- Options populated by JavaScript -->
+                    </select>
+                </div>
+                
+                <!-- Filtro por Status -->
+                <div class="flex flex-col">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="fas fa-flag mr-1"></i>Status
+                    </label>
+                    <select id="statusFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="all">🏷️ Todos os Status</option>
+                        <option value="draft">📝 Rascunho</option>
+                        <option value="review">👀 Em Revisão</option>
+                        <option value="approved">✅ Aprovado</option>
+                        <option value="done">⚙️ Concluído</option>
+                    </select>
+                </div>
+                
+                <!-- Filtro por Prioridade -->
+                <div class="flex flex-col">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>Prioridade
+                    </label>
+                    <select id="priorityFilter" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="all">📊 Todas</option>
+                        <option value="critical">🔴 Crítica</option>
+                        <option value="high">🟠 Alta</option>
+                        <option value="medium">🟡 Média</option>
+                        <option value="low">🟢 Baixa</option>
+                    </select>
+                </div>
+                
+                <!-- Ordenação -->
+                <div class="flex flex-col">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="fas fa-sort mr-1"></i>Ordenar por
+                    </label>
+                    <select id="sortBy" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="newest">📅 Mais Recentes</option>
+                        <option value="oldest">🕰️ Mais Antigos</option>
+                        <option value="priority">🔥 Por Prioridade</option>
+                        <option value="status">🏷️ Por Status</option>
+                        <option value="story">📚 Por História</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Botão Limpar Filtros -->
+            <div class="flex justify-end">
+                <button id="clearFilters" onclick="clearAllFilters()" class="flex items-center gap-2 px-4 py-2 text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                    <i class="fas fa-eraser"></i>
+                    <span>Limpar Filtros</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- No Results Message -->
+    <div id="noResultsMessage" class="hidden text-center py-12">
+        <div class="max-w-md mx-auto">
+            <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Nenhum requisito encontrado</h3>
+            <p class="text-gray-600 mb-4">Tente ajustar os filtros ou criar um novo requisito.</p>
+            <button onclick="clearAllFilters()" class="btn-secondary">
+                <i class="fas fa-filter-circle-xmark mr-2"></i>
+                Limpar Filtros
+            </button>
+        </div>
+    </div>
+
+    <!-- No Requirements Message -->
+    <div id="noRequirementsMessage" class="hidden text-center py-12">
+        <div class="max-w-md mx-auto">
+            <i class="fas fa-list-check text-4xl text-gray-300 mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Nenhum requisito criado ainda</h3>
+            <p class="text-gray-600 mb-4">Comece criando seu primeiro requisito.</p>
+            <div class="flex gap-2 justify-center">
+                <button onclick="openGenerateRequirementsModal()" class="btn-primary">
+                    <i class="fas fa-magic mr-2"></i>
+                    Gerar com IA
+                </button>
+                <button onclick="openCreateRequirementModal()" class="btn-secondary">
+                    <i class="fas fa-plus mr-2"></i>
+                    Criar Manualmente
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Requirements Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="requirements-list">
+        {% if requirements_data %}
+            {% for req in requirements_data %}
+            <div class="requirement-item bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer group requirement-card-hover" 
+                 data-id="{{ req.id }}"
+                 data-status="{{ req.status }}" 
+                 data-priority="{{ req.priority }}" 
+                 data-story-id="{{ req.user_story_id | default('') }}"
+                 data-story-text="{{ req.user_story_text | default('') | lower }}"
+                 data-description="{{ req.description | lower }}"
+                 data-created="{{ req.created_at if req.created_at else '' }}">
+                
+                <!-- Header do Card -->
+                <div class="flex items-start justify-between mb-4 p-6 pb-0">
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-lg font-semibold text-gray-900 leading-tight mb-2 group-hover:text-blue-600 transition-colors duration-200">
+                            Requisito #{{ req.id }}
+                        </h3>
+                        
+                        <!-- Status e Prioridade -->
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium
+                                {% if req.status == 'approved' %}bg-green-100 text-green-800
+                                {% elif req.status == 'review' %}bg-yellow-100 text-yellow-800
+                                {% elif req.status == 'done' %}bg-purple-100 text-purple-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {% if req.status == 'approved' %}
+                                    <i class="fas fa-check-circle"></i>
+                                    Aprovado
+                                {% elif req.status == 'review' %}
+                                    <i class="fas fa-clock"></i>
+                                    Em Revisão
+                                {% elif req.status == 'done' %}
+                                    <i class="fas fa-check-double"></i>
+                                    Concluído
+                                {% else %}
+                                    <i class="fas fa-edit"></i>
+                                    Rascunho
+                                {% endif %}
+                            </span>
+                            
+                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium
+                                {% if req.priority == 'critical' %}bg-red-100 text-red-800
+                                {% elif req.priority == 'high' %}bg-orange-100 text-orange-800
+                                {% elif req.priority == 'medium' %}bg-yellow-100 text-yellow-800
+                                {% elif req.priority == 'low' %}bg-green-100 text-green-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {% if req.priority == 'critical' %}
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    Crítica
+                                {% elif req.priority == 'high' %}
+                                    <i class="fas fa-chevron-up"></i>
+                                    Alta
+                                {% elif req.priority == 'medium' %}
+                                    <i class="fas fa-minus"></i>
+                                    Média
+                                {% elif req.priority == 'low' %}
+                                    <i class="fas fa-chevron-down"></i>
+                                    Baixa
+                                {% else %}
+                                    {{ req.priority | capitalize }}
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Descrição -->
+                <div class="mb-4 px-6">
+                    <p class="text-sm text-gray-700 leading-relaxed line-clamp-3">
+                        {{ req.description }}
+                    </p>
+                </div>
+
+                <!-- História Associada -->
+                <div class="mb-4 px-6">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i class="fas fa-book-open text-blue-600 text-sm"></i>
+                            <span class="text-xs font-medium text-blue-800">História Associada</span>
+                        </div>
+                        <p class="text-sm text-blue-700 line-clamp-2">
+                            {{ req.user_story_text | default('História não encontrada') }}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Data e Action Buttons Footer -->
+                <div class="flex justify-between items-center pt-3 border-t border-gray-100 px-6 pb-6">
+                    <div class="flex items-center gap-2 text-xs text-gray-500">
+                        <i class="fas fa-calendar"></i>
+                        <span>{{ req.created_at[:10] if req.created_at else 'N/A' }}</span>
+                    </div>
+                    
+                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <button onclick="event.stopPropagation(); editRequirement({{ req.id }})" 
+                                class="btn-icon text-gray-400 hover:text-blue-600 hover:bg-blue-50" 
+                                title="Editar Requisito">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="event.stopPropagation(); deleteRequirement({{ req.id }})" 
+                                class="btn-icon text-gray-400 hover:text-red-600 hover:bg-red-50" 
+                                title="Excluir Requisito">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <!-- Estado Vazio - Nenhum Requisito -->
+            <div id="noRequirementsMessage" class="col-span-full">
+                <div class="text-center py-12">
+                    <div class="mx-auto w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mb-6">
+                        <i class="fas fa-list-check text-3xl text-blue-600"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Nenhum requisito criado ainda</h3>
+                    <p class="text-gray-600 mb-6 max-w-sm mx-auto">
+                        Comece criando seus primeiros requisitos para organizar as funcionalidades.
+                    </p>
+                    <div class="flex gap-3 justify-center">
+                        <button onclick="openGenerateRequirementsModal()" class="btn-primary">
+                            <i class="fas fa-magic mr-2"></i>
+                            Gerar com IA
+                        </button>
+                        <button onclick="openCreateRequirementModal()" class="btn-secondary">
+                            <i class="fas fa-plus mr-2"></i>
+                            Criar Manualmente
+                        </button>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+        
+        <!-- Estado Vazio - Nenhum Resultado de Busca -->
+        <div id="noResultsMessage" class="col-span-full" style="display: none;">
+            <div class="text-center py-12">
+                <div class="mx-auto w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mb-6">
+                    <i class="fas fa-search text-3xl text-blue-600"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Nenhum resultado encontrado</h3>
+                <p class="text-gray-600 mb-6 max-w-sm mx-auto">
+                    Tente ajustar os filtros ou criar um novo requisito.
+                </p>
+                <div class="flex gap-3 justify-center">
+                    <button onclick="clearAllFilters()" class="btn-secondary">
+                        <i class="fas fa-filter-circle-xmark mr-2"></i>
+                        Limpar Filtros
+                    </button>
+                    <button onclick="openCreateRequirementModal()" class="btn-primary">
+                        <i class="fas fa-plus mr-2"></i>
+                        Novo Requisito
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Gerar Requisitos com IA -->
+<div id="generateRequirementsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="text-xl font-semibold flex items-center gap-2">
+                <i class="fas fa-magic"></i>
+                Gerar Requisitos com IA
+            </h2>
+            <button onclick="closeModal('generateRequirementsModal')" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="generateRequirementsForm" onsubmit="generateRequirements(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="userStorySelect">Selecione uma História de Usuário *</label>
+                    <select id="userStorySelect" name="user_story_id" required 
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Carregando histórias...</option>
+                        {# Opções serão carregadas via JavaScript #}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="customPromptRequirements">Ajustar Prompt (Opcional)</label>
+                    <textarea id="customPromptRequirements" name="custom_prompt" rows="4"
+                              placeholder="Ex: 'Foque em requisitos de performance e escalabilidade.'"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Isso adicionará instruções extras ao prompt padrão da IA.</p>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('generateRequirementsModal')" class="btn-secondary">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-magic mr-2"></i> Gerar Requisitos
+                </button>
+            </div>
+        </form>
+        <div id="modal-message-generate-req" class="mt-4 p-3 rounded-lg text-center" style="display: none;"></div> {# <--- ID ÚNICO #}
+    </div>
+</div>
+
+<!-- Modal para Criar Novo Requisito (Manualmente) -->
+<div id="createRequirementModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="text-xl font-semibold">Criar Novo Requisito</h2>
+            <button onclick="closeModal('createRequirementModal')" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="createRequirementForm" onsubmit="createRequirement(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newRequirementUserStorySelect">História de Usuário *</label>
+                    <select id="newRequirementUserStorySelect" name="user_story_id" required 
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Carregando histórias...</option>
+                        {# Opções serão carregadas via JavaScript #}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="requirementDescription">Descrição do Requisito *</label>
+                    <textarea id="requirementDescription" name="description" required rows="3"
+                              placeholder="Descreva o requisito funcional ou não-funcional..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="requirementPriority">Prioridade</label>
+                    <select id="requirementPriority" name="priority" 
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="medium">🟡 Média</option>
+                        <option value="high">🟠 Alta</option>
+                        <option value="low">🟢 Baixa</option>
+                        <option value="critical">🔴 Crítica</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('createRequirementModal')" class="btn-secondary">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary">
+                    Criar Requisito
+                </button>
+            </div>
+        </form>
+        <div id="modal-message-create-req" class="mt-4 p-3 rounded-lg text-center" style="display: none;"></div> {# <--- ID ÚNICO #}
+    </div>
+</div>
+
+<!-- Modal para Editar Requisito -->
+<div id="editRequirementModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="text-xl font-semibold">Editar Requisito</h2>
+            <button onclick="closeModal('editRequirementModal')" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="editRequirementForm" onsubmit="updateRequirement(event)">
+            <div class="modal-body">
+                <input type="hidden" id="editRequirementId" name="requirement_id">
+                
+                <div class="form-group">
+                    <label for="editRequirementUserStorySelect">História de Usuário *</label>
+                    <select id="editRequirementUserStorySelect" name="user_story_id" required 
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Carregando histórias...</option>
+                        {# Opções serão carregadas via JavaScript #}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editRequirementDescription">Descrição do Requisito *</label>
+                    <textarea id="editRequirementDescription" name="description" required rows="4"
+                              placeholder="Descreva o requisito funcional ou não-funcional..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editRequirementPriority">Prioridade</label>
+                    <select id="editRequirementPriority" name="priority" 
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="low">🟢 Baixa</option>
+                        <option value="medium">🟡 Média</option>
+                        <option value="high">🟠 Alta</option>
+                        <option value="critical">🔴 Crítica</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editRequirementStatus">Status</label>
+                    <select id="editRequirementStatus" name="status" 
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="draft">📝 Rascunho</option>
+                        <option value="review">👀 Em Revisão</option>
+                        <option value="approved">✅ Aprovado</option>
+                        <option value="done">⚙️ Concluído</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('editRequirementModal')" class="btn-secondary">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-save mr-2"></i>
+                    Salvar Alterações
+                </button>
+            </div>
+        </form>
+        <div id="modal-message-edit-req" class="mt-4 p-3 rounded-lg text-center" style="display: none;"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Funções de Modal (reutilizadas de main.js, mas aqui para garantir que existem)
+    function openGenerateRequirementsModal() {
+        document.getElementById('generateRequirementsModal').style.display = 'flex';
+        loadUserStoriesIntoSelect('userStorySelect'); // Carrega histórias no select do modal de geração
+    }
+
+    function openCreateRequirementModal() {
+        document.getElementById('createRequirementModal').style.display = 'flex';
+        loadUserStoriesIntoSelect('newRequirementUserStorySelect'); // Carrega histórias no select do modal de criação manual
+    }
+
+    function openEditRequirementModal(reqId) {
+        document.getElementById('editRequirementModal').style.display = 'flex';
+        loadUserStoriesIntoSelect('editRequirementUserStorySelect'); // Carrega histórias no select do modal de edição
+        loadRequirementData(reqId); // Carrega os dados do requisito para edição
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+        
+        // Limpar mensagens ao fechar
+        const modalMessage = document.getElementById('modal-message-edit-req');
+        if (modalMessage) {
+            modalMessage.style.display = 'none';
+        }
+    }
+
+    // Reutilizando loadProductsIntoSelect de epics.html/main.js se necessário
+    // async function loadProductsIntoSelect(selectId) { ... }
+
+    // Função para carregar HISTÓRIAS no select de modais (copiada do stories.html)
+    async function loadUserStoriesIntoSelect(selectId) {
+        const userStorySelect = document.getElementById(selectId);
+        userStorySelect.innerHTML = '<option value="">Carregando histórias...</option>'; // Limpa e mostra loading
+
+        try {
+            // Chamar a API para listar histórias de usuário do usuário
+            // A rota API é /user-stories/api/user (GET)
+            const response = await authenticatedFetch('/user-stories/api/user', { method: 'GET' }); 
+            if (response.ok) {
+                const userStories = await response.json();
+                userStorySelect.innerHTML = '<option value="">Selecione uma história de usuário</option>'; // Reset após carregar
+
+                userStories.forEach(story => {
+                    const option = document.createElement('option');
+                    option.value = story.id;
+                    // Exibe o texto completo da história ou uma versão concisa
+                    option.textContent = story.story_text ? story.story_text.substring(0, 80) + '...' : `História #${story.id}`;
+                    userStorySelect.appendChild(option);
+                });
+            } else {
+                const errorData = await response.json();
+                console.error('Erro ao carregar histórias para o select:', errorData);
+                userStorySelect.innerHTML = '<option value="">Erro ao carregar histórias</option>';
+            }
+        } catch (error) {
+            console.error('Erro de rede ao carregar histórias para o select:', error);
+            userStorySelect.innerHTML = '<option value="">Erro de conexão</option>';
+        }
+    }
+
+    // Função para carregar dados do requisito no modal de edição
+    async function loadRequirementData(reqId) {
+        const modalMessage = document.getElementById('modal-message-edit-req');
+        modalMessage.style.display = 'none';
+
+        try {
+            const response = await authenticatedFetch(`/requirements/${reqId}`, { method: 'GET' });
+            if (response.ok) {
+                const reqData = await response.json();
+                
+                // Preencher os campos do modal
+                document.getElementById('editRequirementId').value = reqData.id;
+                document.getElementById('editRequirementDescription').value = reqData.description || '';
+                document.getElementById('editRequirementPriority').value = reqData.priority || 'medium';
+                document.getElementById('editRequirementStatus').value = reqData.status || 'draft';
+                
+                // Aguardar o carregamento das histórias e então selecionar a correta
+                setTimeout(() => {
+                    const storySelect = document.getElementById('editRequirementUserStorySelect');
+                    if (reqData.user_story_id && storySelect) {
+                        storySelect.value = reqData.user_story_id;
+                    }
+                }, 500);
+                
+            } else {
+                const errorData = await response.json();
+                modalMessage.style.display = 'block';
+                modalMessage.className = 'mt-4 p-3 rounded-lg text-center bg-red-100 text-red-800';
+                modalMessage.textContent = errorData.message || 'Erro ao carregar dados do requisito';
+            }
+        } catch (error) {
+            console.error('Erro ao carregar dados do requisito:', error);
+            modalMessage.style.display = 'block';
+            modalMessage.className = 'mt-4 p-3 rounded-lg text-center bg-red-100 text-red-800';
+            modalMessage.textContent = 'Erro de conexão ao carregar requisito';
+        }
+    }
+
+
+    // Função para disparar a geração de requisitos via IA
+    async function generateRequirements(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const userStoryId = formData.get('user_story_id');
+        const customPrompt = formData.get('custom_prompt');
+        const modalMessageDiv = document.getElementById('modal-message-generate-req'); // <--- ID CORRIGIDO AQUI
+        const generateButton = form.querySelector('button[type="submit"]');
+
+        modalMessageDiv.style.display = 'none';
+        generateButton.disabled = true;
+        generateButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Gerando...';
+
+        if (!userStoryId) {
+            modalMessageDiv.style.display = 'block';
+            modalMessageDiv.style.backgroundColor = '#f8d7da';
+            modalMessageDiv.style.color = '#721c24';
+            modalMessageDiv.textContent = 'Por favor, selecione uma história de usuário.';
+            generateButton.disabled = false;
+            generateButton.innerHTML = '<i class="fas fa-magic mr-2"></i> Gerar Requisitos';
+            return;
+        }
+
+        try {
+            // A rota é /requirements/generate/<user_story_id> (POST)
+            const response = await authenticatedFetch(`/requirements/generate/${userStoryId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ custom_prompt: customPrompt })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#d4edda';
+                modalMessageDiv.style.color = '#155724';
+                modalMessageDiv.textContent = data.message || 'Requisitos gerados com sucesso!';
+                
+                setTimeout(() => {
+                    closeModal('generateRequirementsModal');
+                    location.reload(); // Recarrega a página para ver os novos requisitos
+                }, 2000);
+
+            } else {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#f8d7da';
+                modalMessageDiv.style.color = '#721c24';
+                modalMessageDiv.textContent = data.message || 'Erro ao gerar requisitos.';
+                console.error('Erro na resposta da API ao gerar requisitos:', data);
+            }
+        } catch (error) {
+            modalMessageDiv.style.display = 'block';
+            modalMessageDiv.style.backgroundColor = '#f8d7da';
+            modalMessageDiv.style.color = '#721c24';
+            modalMessageDiv.textContent = 'Ocorreu um erro de rede ou servidor ao gerar requisitos.';
+            console.error('Erro de rede ao gerar requisitos:', error);
+        } finally {
+            generateButton.disabled = false;
+            generateButton.innerHTML = '<i class="fas fa-magic mr-2"></i> Gerar Requisitos';
+        }
+    }
+
+    // Função para Criar Requisito Manualmente
+    async function createRequirement(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const userStoryId = formData.get('user_story_id');
+        const description = formData.get('description');
+        const priority = formData.get('priority');
+        const modalMessageDiv = document.getElementById('modal-message-create-req'); // <--- ID CORRIGIDO AQUI
+        const createButton = form.querySelector('button[type="submit"]');
+
+        modalMessageDiv.style.display = 'none';
+        createButton.disabled = true;
+        createButton.textContent = 'Criando...';
+
+        try {
+            const response = await authenticatedFetch('/requirements', { // Rota POST /requirements
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ user_story_id: userStoryId, description, priority })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#d4edda';
+                modalMessageDiv.style.color = '#155724';
+                modalMessageDiv.textContent = data.message || 'Requisito criado manualmente com sucesso!';
+                
+                setTimeout(() => {
+                    closeModal('createRequirementModal');
+                    location.reload();
+                }, 2000);
+
+            } else {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#f8d7da';
+                modalMessageDiv.style.color = '#721c24';
+                modalMessageDiv.textContent = data.message || 'Erro ao criar requisito.';
+                console.error('Erro na resposta da API ao criar requisito:', data);
+            }
+        } catch (error) {
+            modalMessageDiv.style.display = 'block';
+            modalMessageDiv.style.backgroundColor = '#f8d7da';
+            modalMessageDiv.style.color = '#721c24';
+            modalMessageDiv.textContent = 'Ocorreu um erro de rede ou servidor ao criar requisito.';
+            console.error('Erro de rede ao criar requisito:', error);
+        } finally {
+            createButton.disabled = false;
+            createButton.textContent = 'Criar Requisito';
+        }
+    }
+
+    // Função para Atualizar Requisito
+    async function updateRequirement(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const reqId = formData.get('requirement_id');
+        const userStoryId = formData.get('user_story_id');
+        const description = formData.get('description');
+        const priority = formData.get('priority');
+        const status = formData.get('status');
+        const modalMessageDiv = document.getElementById('modal-message-edit-req');
+        const updateButton = form.querySelector('button[type="submit"]');
+
+        modalMessageDiv.style.display = 'none';
+        updateButton.disabled = true;
+        updateButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Salvando...';
+
+        try {
+            const response = await authenticatedFetch(`/requirements/${reqId}`, { 
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    user_story_id: userStoryId, 
+                    description, 
+                    priority, 
+                    status 
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.className = 'mt-4 p-3 rounded-lg text-center bg-green-100 text-green-800';
+                modalMessageDiv.textContent = data.message || 'Requisito atualizado com sucesso!';
+                
+                // Atualizar o card na interface sem recarregar a página
+                updateRequirementCard(reqId, {
+                    description,
+                    priority,
+                    status,
+                    user_story_id: userStoryId
+                });
+                
+                // Atualizar barras de progresso dos épicos sempre que o status mudar
+                updateEpicProgressBars();
+                
+                setTimeout(() => {
+                    closeModal('editRequirementModal');
+                }, 1500);
+
+            } else {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.className = 'mt-4 p-3 rounded-lg text-center bg-red-100 text-red-800';
+                modalMessageDiv.textContent = data.message || 'Erro ao atualizar requisito.';
+                console.error('Erro na resposta da API ao atualizar requisito:', data);
+            }
+        } catch (error) {
+            modalMessageDiv.style.display = 'block';
+            modalMessageDiv.className = 'mt-4 p-3 rounded-lg text-center bg-red-100 text-red-800';
+            modalMessageDiv.textContent = 'Ocorreu um erro de rede ou servidor ao atualizar requisito.';
+            console.error('Erro de rede ao atualizar requisito:', error);
+        } finally {
+            updateButton.disabled = false;
+            updateButton.innerHTML = '<i class="fas fa-save mr-2"></i> Salvar Alterações';
+        }
+    }
+
+    // ============== FUNCIONALIDADES DE BUSCA E FILTROS ==============
+    
+    let allUserStories = [];
+    let isFilterInitialized = false;
+
+    // Carregar histórias de usuário para o filtro
+    async function loadUserStoriesForFilter() {
+        if (allUserStories.length > 0) return; // Já carregado
+        
+        try {
+            const response = await authenticatedFetch('/user-stories/api/user');
+            
+            if (response.ok) {
+                const data = await response.json();
+                allUserStories = data;
+                populateStoryFilter();
+            }
+        } catch (error) {
+            console.error('Erro ao carregar histórias para filtro:', error);
+        }
+    }
+
+    // Popular o select de histórias no filtro
+    function populateStoryFilter() {
+        const storySelect = document.getElementById('storyFilter');
+        if (!storySelect || allUserStories.length === 0) return;
+
+        // Limpar opções existentes (exceto "Todas")
+        while (storySelect.children.length > 1) {
+            storySelect.removeChild(storySelect.lastChild);
+        }
+
+        // Adicionar histórias como opções
+        allUserStories.forEach(story => {
+            const option = document.createElement('option');
+            option.value = story.id;
+            option.textContent = `#${story.id} - ${story.story_text ? story.story_text.substring(0, 50) : 'História sem texto'}${story.story_text && story.story_text.length > 50 ? '...' : ''}`;
+            storySelect.appendChild(option);
+        });
+    }
+
+    // Função principal de filtros
+    function filterRequirements() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const storyFilter = document.getElementById('storyFilter').value;
+        const statusFilter = document.getElementById('statusFilter').value;
+        const priorityFilter = document.getElementById('priorityFilter').value;
+        const sortBy = document.getElementById('sortBy').value;
+
+        const requirementCards = document.querySelectorAll('.requirement-item');
+        let visibleCount = 0;
+
+        requirementCards.forEach(card => {
+            const description = card.dataset.description || '';
+            const storyText = card.dataset.storyText || '';
+            const storyId = card.dataset.storyId || '';
+            const status = card.dataset.status || '';
+            const priority = card.dataset.priority || '';
+
+            let isVisible = true;
+
+            // Filtro de busca
+            if (searchTerm) {
+                const searchMatch = description.includes(searchTerm) || 
+                                  storyText.includes(searchTerm) ||
+                                  (card.querySelector('h3') && card.querySelector('h3').textContent.toLowerCase().includes(searchTerm));
+                if (!searchMatch) isVisible = false;
+            }
+
+            // Filtro por história
+            if (storyFilter !== 'all' && storyId !== storyFilter) {
+                isVisible = false;
+            }
+
+            // Filtro por status
+            if (statusFilter !== 'all' && status !== statusFilter) {
+                isVisible = false;
+            }
+
+            // Filtro por prioridade
+            if (priorityFilter !== 'all' && priority !== priorityFilter) {
+                isVisible = false;
+            }
+
+            // Aplicar visibilidade
+            if (isVisible) {
+                card.style.display = 'block';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // Ordenar requisitos visíveis
+        sortRequirements(sortBy);
+
+        // Atualizar contador
+        updateRequirementsCounter(visibleCount);
+        
+        // Atualizar contador no header dos filtros
+        const resultsCount = document.getElementById('resultsCount');
+        if (resultsCount) {
+            const totalRequirements = requirementCards.length;
+            const visibleCountSpan = document.getElementById('requirementsCounter');
+            const totalCountSpan = document.getElementById('totalCount');
+            
+            if (visibleCountSpan) visibleCountSpan.textContent = visibleCount;
+            if (totalCountSpan) totalCountSpan.textContent = totalRequirements;
+        }
+
+        // Mostrar/ocultar mensagem de "nenhum resultado"
+        const noResultsMessage = document.getElementById('noResultsMessage');
+        const noRequirementsMessage = document.getElementById('noRequirementsMessage');
+        
+        if (visibleCount === 0 && requirementCards.length > 0) {
+            noResultsMessage.classList.remove('hidden');
+            if (noRequirementsMessage) noRequirementsMessage.classList.add('hidden');
+        } else {
+            noResultsMessage.classList.add('hidden');
+        }
+    }
+
+    // Função de ordenação
+    function sortRequirements(sortBy) {
+        const container = document.getElementById('requirements-list');
+        const cards = Array.from(container.querySelectorAll('.requirement-item[style*="block"], .requirement-item:not([style])'));
+        
+        cards.sort((a, b) => {
+            switch (sortBy) {
+                case 'newest':
+                    return new Date(b.dataset.created || 0) - new Date(a.dataset.created || 0);
+                case 'oldest':
+                    return new Date(a.dataset.created || 0) - new Date(b.dataset.created || 0);
+                case 'priority':
+                    const priorityOrder = { 'critical': 4, 'high': 3, 'medium': 2, 'low': 1 };
+                    return (priorityOrder[b.dataset.priority] || 0) - (priorityOrder[a.dataset.priority] || 0);
+                case 'status':
+                    return (a.dataset.status || '').localeCompare(b.dataset.status || '');
+                case 'story':
+                    return (a.dataset.storyText || '').localeCompare(b.dataset.storyText || '');
+                default:
+                    return 0;
+            }
+        });
+
+        // Reordenar no DOM
+        cards.forEach(card => container.appendChild(card));
+    }
+
+    // Atualizar contador de requisitos
+    function updateRequirementsCounter(count) {
+        const counter = document.getElementById('requirementsCounter');
+        if (counter) {
+            counter.textContent = count;
+        }
+    }
+
+    // Limpar todos os filtros
+    function clearAllFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('storyFilter').value = 'all';
+        document.getElementById('statusFilter').value = 'all';
+        document.getElementById('priorityFilter').value = 'all';
+        document.getElementById('sortBy').value = 'newest';
+        
+        filterRequirements();
+    }
+
+    // Clear story filter and return to all requirements
+    function clearStoryFilter() {
+        window.location.href = '/requirements';
+    }
+
+    // Função para limpar apenas a pesquisa
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('searchClear').classList.add('hidden');
+        filterRequirements();
+    }
+
+    // Event listeners para filtros
+    function setupFilterEventListeners() {
+        if (isFilterInitialized) return;
+        
+        const searchInput = document.getElementById('searchInput');
+        const storyFilter = document.getElementById('storyFilter');
+        const statusFilter = document.getElementById('statusFilter');
+        const priorityFilter = document.getElementById('priorityFilter');
+        const sortBy = document.getElementById('sortBy');
+        const clearButton = document.getElementById('clearFilters');
+        const searchClear = document.getElementById('searchClear');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                const value = e.target.value;
+                const searchClear = document.getElementById('searchClear');
+                
+                if (value.length > 0) {
+                    searchClear.classList.remove('hidden');
+                } else {
+                    searchClear.classList.add('hidden');
+                }
+                
+                // Adicionar classe de loading durante a busca
+                searchInput.classList.add('search-loading');
+                
+                // Usar debounce para evitar muitas chamadas
+                clearTimeout(searchInput.searchTimeout);
+                searchInput.searchTimeout = setTimeout(() => {
+                    filterRequirements();
+                    searchInput.classList.remove('search-loading');
+                }, 300);
+            });
+        }
+        
+        [storyFilter, statusFilter, priorityFilter, sortBy].forEach(element => {
+            if (element) {
+                element.addEventListener('change', filterRequirements);
+            }
+        });
+
+        if (clearButton) {
+            clearButton.addEventListener('click', clearAllFilters);
+        }
+
+        if (searchClear) {
+            searchClear.addEventListener('click', clearSearch);
+        }
+
+        isFilterInitialized = true;
+    }
+
+    // Função debounce para search input
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Inicializar filtros quando a página carregar
+    document.addEventListener('DOMContentLoaded', function() {
+        // Configurar event listeners primeiro
+        setupFilterEventListeners();
+        
+        // Carregar histórias para o filtro
+        loadUserStoriesForFilter();
+        
+        // Definir contador inicial
+        const totalRequirements = document.querySelectorAll('.requirement-item').length;
+        updateRequirementsCounter(totalRequirements);
+        
+        // Atualizar total count no HTML
+        const totalCountElement = document.getElementById('totalCount');
+        if (totalCountElement) {
+            totalCountElement.textContent = totalRequirements;
+        }
+        
+        // Se não há requisitos, mostrar mensagem apropriada
+        if (totalRequirements === 0) {
+            const noRequirementsMessage = document.getElementById('noRequirementsMessage');
+            if (noRequirementsMessage) {
+                noRequirementsMessage.classList.remove('hidden');
+            }
+        }
+    });
+
+    // ============== FIM DAS FUNCIONALIDADES DE BUSCA E FILTROS ==============
+
+    // Função para atualizar o card do requisito na interface
+    function updateRequirementCard(reqId, updatedData) {
+        const reqCard = document.querySelector(`[data-id="${reqId}"]`);
+        if (!reqCard) return;
+
+        // Atualizar dados do card
+        reqCard.dataset.status = updatedData.status;
+        reqCard.dataset.priority = updatedData.priority;
+        reqCard.dataset.description = updatedData.description.toLowerCase();
+
+        // Atualizar descrição
+        const descriptionElement = reqCard.querySelector('.text-sm.text-gray-700.leading-relaxed');
+        if (descriptionElement) {
+            descriptionElement.textContent = updatedData.description;
+        }
+
+        // Atualizar badges de status e prioridade
+        const statusBadge = reqCard.querySelector('.inline-flex.items-center.gap-1:first-child');
+        const priorityBadge = reqCard.querySelector('.inline-flex.items-center.gap-1:last-child');
+
+        if (statusBadge) {
+            updateStatusBadge(statusBadge, updatedData.status);
+        }
+
+        if (priorityBadge) {
+            updatePriorityBadge(priorityBadge, updatedData.priority);
+        }
+
+        // Animar atualização
+        reqCard.style.border = '2px solid #22c55e';
+        reqCard.style.transform = 'scale(1.02)';
+        
+        setTimeout(() => {
+            reqCard.style.border = '';
+            reqCard.style.transform = '';
+        }, 1000);
+    }
+
+    // Função para atualizar badge de status
+    function updateStatusBadge(badgeElement, status) {
+        // Limpar classes existentes
+        badgeElement.className = 'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium';
+
+        let content = '';
+        switch (status) {
+            case 'approved':
+                badgeElement.classList.add('bg-green-100', 'text-green-800');
+                content = '<i class="fas fa-check-circle"></i> Aprovado';
+                break;
+            case 'review':
+                badgeElement.classList.add('bg-yellow-100', 'text-yellow-800');
+                content = '<i class="fas fa-clock"></i> Em Revisão';
+                break;
+            case 'done':
+                badgeElement.classList.add('bg-purple-100', 'text-purple-800');
+                content = '<i class="fas fa-check-double"></i> Concluído';
+                break;
+            default: // draft
+                badgeElement.classList.add('bg-gray-100', 'text-gray-800');
+                content = '<i class="fas fa-edit"></i> Rascunho';
+        }
+        badgeElement.innerHTML = content;
+    }
+
+    // Função para atualizar badge de prioridade
+    function updatePriorityBadge(badgeElement, priority) {
+        // Limpar classes existentes
+        badgeElement.className = 'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium';
+
+        let content = '';
+        switch (priority) {
+            case 'critical':
+                badgeElement.classList.add('bg-red-100', 'text-red-800');
+                content = '<i class="fas fa-exclamation-triangle"></i> Crítica';
+                break;
+            case 'high':
+                badgeElement.classList.add('bg-orange-100', 'text-orange-800');
+                content = '<i class="fas fa-chevron-up"></i> Alta';
+                break;
+            case 'medium':
+                badgeElement.classList.add('bg-yellow-100', 'text-yellow-800');
+                content = '<i class="fas fa-minus"></i> Média';
+                break;
+            case 'low':
+                badgeElement.classList.add('bg-green-100', 'text-green-800');
+                content = '<i class="fas fa-chevron-down"></i> Baixa';
+                break;
+            default:
+                badgeElement.classList.add('bg-gray-100', 'text-gray-800');
+                content = priority.charAt(0).toUpperCase() + priority.slice(1);
+        }
+        badgeElement.innerHTML = content;
+    }
+
+    // Funções de Ação para cada requisito
+    function editRequirement(reqId) {
+        openEditRequirementModal(reqId);
+    }
+
+    async function deleteRequirement(reqId) {
+        const confirmMessage = 'Tem certeza que deseja deletar este requisito?\n\nEsta ação não pode ser desfeita.';
+        
+        if (confirm(confirmMessage)) {
+            try {
+                showToast('Excluindo requisito...', 'info');
+                
+                const response = await authenticatedFetch(`/requirements/${reqId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (response.ok) {
+                    showToast('Requisito excluído com sucesso!', 'success');
+                    
+                    // Remover o card do requisito da interface
+                    const reqCard = document.querySelector(`[data-id="${reqId}"]`);
+                    if (reqCard) {
+                        reqCard.style.transition = 'all 0.3s ease';
+                        reqCard.style.opacity = '0';
+                        reqCard.style.transform = 'scale(0.95)';
+                        
+                        setTimeout(() => {
+                            reqCard.remove();
+                            // Atualizar contador
+                            const totalRequirements = document.querySelectorAll('.requirement-item').length;
+                            updateRequirementsCounter(totalRequirements);
+                            
+                            // Verificar se não há mais requisitos
+                            if (totalRequirements === 0) {
+                                const noRequirementsMessage = document.getElementById('noRequirementsMessage');
+                                if (noRequirementsMessage) {
+                                    noRequirementsMessage.classList.remove('hidden');
+                                }
+                            }
+                        }, 300);
+                    }
+                } else {
+                    const errorData = await response.json();
+                    showToast(errorData.message || 'Erro ao excluir requisito', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao excluir requisito:', error);
+                showToast('Erro de conexão ao excluir requisito', 'error');
+            }
+        }
+    }
+
+    // Sistema de notificações toast (se não existir)
+    function showToast(message, type = 'info') {
+        // Remover toasts existentes
+        const existingToasts = document.querySelectorAll('.toast-notification');
+        existingToasts.forEach(toast => toast.remove());
+
+        // Criar novo toast
+        const toast = document.createElement('div');
+        toast.className = `toast-notification fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-medium max-w-sm transition-all duration-300 transform translate-x-full`;
+        
+        // Definir cor baseada no tipo
+        switch (type) {
+            case 'success':
+                toast.classList.add('bg-green-500');
+                break;
+            case 'error':
+                toast.classList.add('bg-red-500');
+                break;
+            case 'info':
+            default:
+                toast.classList.add('bg-blue-500');
+                break;
+        }
+
+        // Adicionar ícone baseado no tipo
+        let icon = '';
+        switch (type) {
+            case 'success':
+                icon = '<i class="fas fa-check-circle mr-2"></i>';
+                break;
+            case 'error':
+                icon = '<i class="fas fa-exclamation-circle mr-2"></i>';
+                break;
+            case 'info':
+            default:
+                icon = '<i class="fas fa-info-circle mr-2"></i>';
+                break;
+        }
+
+        toast.innerHTML = `
+            <div class="flex items-center">
+                ${icon}
+                <span>${message}</span>
+            </div>
+        `;
+
+        // Adicionar ao DOM
+        document.body.appendChild(toast);
+
+        // Animar entrada
+        setTimeout(() => {
+            toast.classList.remove('translate-x-full');
+        }, 100);
+
+        // Remover automaticamente após 4 segundos
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 300);
+        }, 4000);
+    }
+
+    // Função para atualizar barras de progresso dos épicos
+    async function updateEpicProgressBars() {
+        try {
+            // Primeiro, tentamos encontrar qual épico está relacionado a este requisito
+            // Para isso, precisamos buscar a história de usuário e o épico associado
+            
+            // Se estivermos na página de épicos (podem estar abertas em outras abas),
+            // enviamos um evento personalizado
+            window.dispatchEvent(new CustomEvent('requirementStatusChanged', {
+                detail: { 
+                    message: 'Requisito marcado como concluído - atualizar progresso dos épicos',
+                    timestamp: new Date().toISOString()
+                }
+            }));
+            
+            // Também armazenamos um flag para indicar que os épicos precisam ser atualizados
+            localStorage.setItem('epicProgressUpdateNeeded', JSON.stringify({
+                timestamp: new Date().toISOString(),
+                action: 'requirement_completed'
+            }));
+            
+            console.log('Sinalizada atualização de progresso dos épicos');
+            
+        } catch (error) {
+            console.error('Erro ao sinalizar atualização de progresso dos épicos:', error);
+        }
+    }
+
+    // Carregar requisitos quando a página carregar (se vierem do Flask diretamente)
+    // Se o Flask já passa 'requirements_data' no template, este JS é para carregamento dinâmico.
+    // loadRequirements(); // Não chame aqui se os dados já vêm do Flask no template
+</script>
+{% endblock %}

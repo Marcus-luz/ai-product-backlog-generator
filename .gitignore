@@ -1,0 +1,55 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Outros arquivos .pyc em qualquer diretório
+*.pyc
+
+# Diretórios específicos
+**/__pycache__/
+
+# Arquivos grandes e dados
+*.zip
+*.rar
+*.7z
+*.tar.gz
+*.csv
+*.xlsx
+*.xls
+*.db
+*.sqlite
+*.sqlite3
+*.pickle
+*.pkl
+*.h5
+*.hdf5
+*.parquet
+*.feather
+*.npy
+*.npz
+
+# Ambientes virtuais
+venv/
+env/
+.env/
+.venv/
+
+# Arquivos de configuração sensíveis
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+*.env
+
+# Logs e arquivos temporários
+*.log
+*.tmp
+*.temp
+
+# Diretórios de dados
+data/large_data/
+datasets/
+raw_data/
+processed_data/

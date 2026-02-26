@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.name }} - Detalhes do Produto{% endblock %}
+
+{% block content %}
+<div class="p-8">
+    <!-- Header do Produto -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-4">
+                <button onclick="navigateWithToken('{{ url_for('dashboard_bp.dashboard_page') }}')" 
+                        class="text-gray-600 hover:text-gray-900 transition-colors">
+                    <i class="fas fa-arrow-left text-xl"></i>
+                </button>
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">{{ product.name }}</h1>
+                    <p class="text-gray-600 mt-1">{{ product.description }}</p>
+                </div>
+            </div>
+            <span class="badge badge-{{ product.status }}">
+                {% if product.status == 'active' %}Ativo
+                {% elif product.status == 'draft' %}Rascunho
+                {% else %}{{ product.status }}{% endif %}
+            </span>
+        </div>
+        
+        <!-- Informações do Produto -->
+        <div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-2">PROPOSTA DE VALOR</h3>
+                    <p class="text-gray-900">{{ product.value_proposition }}</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-2">PLATAFORMAS</h3>
+                    <p class="text-gray-900">{{ product.channels_platforms }}</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-200">
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-blue-600">{{ total_epics }}</p>
+                    <p class="text-sm text-gray-600">Épicos</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-green-600">{{ total_user_stories }}</p>
+                    <p class="text-sm text-gray-600">Histórias</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-purple-600">{{ total_requirements }}</p>
+                    <p class="text-sm text-gray-600">Requisitos</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-sm text-gray-500">Atualizado em</p>
+                    <p class="text-sm font-medium text-gray-900">{{ product.updated_at }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Épicos -->
+    <div class="space-y-6">
+        {% for epic in epics %}
+        <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <!-- Header do Épico -->
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-bullseye text-blue-600"></i>
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900">{{ epic.title }}</h2>
+                            <p class="text-sm text-gray-600">{{ epic.description }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm text-gray-500">
+                            {{ epic.user_stories_count }} histórias • {{ epic.requirements_count }} requisitos
+                        </span>
+                        <span class="badge badge-{{ epic.status }}">
+                            {% if epic.status == 'draft' %}Rascunho
+                            {% elif epic.status == 'in_review' %}Em Revisão
+                            {% elif epic.status == 'approved' %}Aprovado
+                            {% else %}{{ epic.status }}{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Histórias do Épico -->
+            <div class="p-6">
+                {% if epic.user_stories %}
+                    <div class="space-y-4">
+                        {% for story in epic.user_stories %}
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <!-- Header da História -->
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i class="fas fa-user text-green-600 text-sm"></i>
+                                        <span class="text-sm font-medium text-gray-700">{{ story.persona }}</span>
+                                        <span class="badge badge-{{ story.priority.lower() }} text-xs">
+                                            {{ story.priority }}
+                                        </span>
+                                    </div>
+                                    <p class="text-gray-900 font-medium">{{ story.story }}</p>
+                                </div>
+                                <span class="badge badge-{{ story.status }} ml-4">
+                                    {% if story.status == 'draft' %}Rascunho
+                                    {% elif story.status == 'ready' %}Pronto
+                                    {% elif story.status == 'in_progress' %}Em Andamento
+                                    {% elif story.status == 'done' %}Concluído
+                                    {% else %}{{ story.status }}{% endif %}
+                                </span>
+                            </div>
+
+                            <!-- Requisitos da História -->
+                            {% if story.requirements %}
+                            <div class="mt-4 pt-4 border-t border-gray-100">
+                                <h4 class="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                                    <i class="fas fa-list-check text-purple-600 text-sm"></i>
+                                    Requisitos ({{ story.requirements_count }})
+                                </h4>
+                                <div class="space-y-2">
+                                    {% for req in story.requirements %}
+                                    <div class="flex items-start gap-3 bg-gray-50 rounded p-3">
+                                        <div class="flex-1">
+                                            <p class="text-sm text-gray-900">{{ req.description }}</p>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs badge badge-{{ req.priority.lower() }}">
+                                                {{ req.priority }}
+                                            </span>
+                                            <span class="text-xs badge badge-{{ req.status }}">
+                                                {% if req.status == 'draft' %}Rascunho
+                                                {% elif req.status == 'approved' %}Aprovado
+                                                {% elif req.status == 'implemented' %}Implementado
+                                                {% else %}{{ req.status }}{% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="mt-4 pt-4 border-t border-gray-100">
+                                <p class="text-sm text-gray-500 italic">Nenhum requisito definido para esta história.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-8">
+                        <i class="fas fa-file-text text-gray-300 text-3xl mb-3"></i>
+                        <p class="text-gray-500">Nenhuma história de usuário criada para este épico.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if not epics %}
+        <div class="bg-white rounded-lg border border-gray-200 p-8 text-center">
+            <i class="fas fa-bullseye text-gray-300 text-4xl mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Nenhum épico encontrado</h3>
+            <p class="text-gray-500 mb-4">Este produto ainda não possui épicos definidos.</p>
+            <button onclick="navigateWithToken('{{ url_for('epic_bp.epics_page') }}')" class="btn-primary">
+                <i class="fas fa-plus mr-2"></i>
+                Criar Primeiro Épico
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Adicionar funcionalidades específicas da página se necessário
+console.log('Página de detalhes do produto carregada');
+</script>
+{% endblock %}

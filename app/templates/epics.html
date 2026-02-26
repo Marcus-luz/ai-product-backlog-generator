@@ -1,0 +1,1741 @@
+<!-- app/templates/epics.html -->
+
+{% extends "base.html" %}
+
+{% block title %}Épicos - AI Product Owner{% endblock %}
+
+{% block head %}
+<style>
+    /* Estilos específicos para a página de épicos */
+    .epic-item {
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .epic-item:hover {
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    
+    .epic-item.filtered-out {
+        opacity: 0;
+        transform: scale(0.95);
+        pointer-events: none;
+    }
+    
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Animação para os ícones */
+    .btn-icon {
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+        transition: all 0.2s ease;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+    }
+
+    .btn-icon:hover {
+        transform: scale(1.1);
+    }
+
+    /* Loading state para busca */
+    .search-loading {
+        position: relative;
+    }
+
+    .search-loading::after {
+        content: '';
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 16px;
+        border: 2px solid #e5e7eb;
+        border-top: 2px solid #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: translateY(-50%) rotate(0deg); }
+        100% { transform: translateY(-50%) rotate(360deg); }
+    }
+
+    /* Animação suave para grid */
+    #epics-list {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Estilos específicos para badges de status */
+    .badge-draft {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge-active {
+        background-color: #dcfce7;
+        color: #166534;
+    }
+
+    .badge-in_review {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .badge-approved {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .badge-done {
+        background-color: #e0e7ff;
+        color: #3730a3;
+    }
+
+    /* Progress bar customizada */
+    .progress-gradient {
+        background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+        transition: width 0.3s ease;
+    }
+
+    /* Animação de hover nos stats cards */
+    .stat-card-hover {
+        transition: all 0.2s ease;
+    }
+
+    .stat-card-hover:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Animações para contadores dos cards */
+    .stat-card-stories .text-sm.font-semibold {
+        transition: all 0.3s ease;
+    }
+
+    .stat-card-stories.highlight .text-sm.font-semibold {
+        color: #16a34a;
+    }
+
+    /* Animação para barra de progresso */
+    .progress-bar-animated {
+        transition: width 0.5s ease-in-out;
+    }
+
+    /* Pulse animation para estatísticas atualizadas - REMOVIDO */
+    .stats-updated {
+        border-color: #22c55e !important;
+    }
+
+    /* Toast Notifications */
+    .toast-notification {
+        backdrop-filter: blur(8px);
+        border-left: 4px solid rgba(255, 255, 255, 0.5);
+    }
+
+    .toast-notification.bg-green-500 {
+        background: linear-gradient(135deg, #10b981, #059669);
+        border-left-color: #d1fae5;
+    }
+
+    .toast-notification.bg-red-500 {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        border-left-color: #fecaca;
+    }
+
+    .toast-notification.bg-blue-500 {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        border-left-color: #dbeafe;
+    }
+
+    /* Efeito hover melhorado para botão de gerar histórias */
+    .btn-icon[title="Gerar Histórias"]:hover {
+        background: linear-gradient(135deg, #10b981, #059669) !important;
+        color: white !important;
+        transform: scale(1.15);
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    }
+
+    /* Feedback visual para ações em andamento */
+    .generating-stories {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .generating-stories::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.2), transparent);
+        animation: shimmer 1.5s infinite;
+    }
+
+    @keyframes shimmer {
+        0% { left: -100%; }
+        100% { left: 100%; }
+    }
+
+    /* Loading state para contadores */
+    .stat-loading {
+        opacity: 0.6;
+        position: relative;
+    }
+
+    .stat-loading::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 12px;
+        height: 12px;
+        border: 2px solid #e5e7eb;
+        border-top: 2px solid #22c55e;
+        border-radius: 50%;
+        animation: spin-center 1s linear infinite;
+    }
+
+    @keyframes spin-center {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="p-8">
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Gerenciamento de Épicos</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-2">Gere, revise e organize os épicos dos seus produtos.</p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="openGenerateEpicsModal()" class="btn-primary"> {# Chamada para o modal de geração IA #}
+                <i class="fas fa-magic mr-2"></i>
+                Gerar com IA
+            </button>
+            <button onclick="openCreateEpicModal()" class="btn-primary"> {# Novo botão para criar épico manualmente #}
+                <i class="fas fa-plus mr-2"></i>
+                Novo Épico
+            </button>
+        </div>
+    </div>
+
+    <!-- Barra de Pesquisa e Filtros -->
+    <div class="stat-card mb-8">
+        <!-- Header da Seção de Filtros -->
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-filter text-blue-600 dark:text-blue-400"></i>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Filtros e Pesquisa</h2>
+            </div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                <span id="resultsCount">{{ epics_data|length if epics_data else 0 }}</span> épico(s) encontrado(s)
+            </div>
+        </div>
+
+        <!-- Controles de Filtro -->
+        <div class="space-y-4">
+            <!-- Campo de Pesquisa -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <i class="fas fa-search mr-1"></i>
+                    Buscar Épicos
+                </label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400 dark:text-gray-500"></i>
+                    </div>
+                    <input type="text" 
+                           id="searchInput" 
+                           placeholder="Pesquisar por título, descrição ou produto..." 
+                           class="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                           autocomplete="off">
+                </div>
+            </div>
+            
+            <!-- Filtros e Ações -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <!-- Filtro por Produto -->
+                <div class="flex flex-col">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-box mr-1"></i>
+                        Filtrar por Produto:
+                    </label>
+                    <select id="productFilter" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-white">
+                        <option value="">📦 Todos os Produtos</option>
+                        <!-- Opções serão carregadas dinamicamente -->
+                    </select>
+                </div>
+                
+                <!-- Filtro por Status -->
+                <div class="flex flex-col">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-flag mr-1"></i>
+                        Status:
+                    </label>
+                    <select id="statusFilter" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-white">
+                        <option value="">🏷️ Todos os Status</option>
+                        <option value="draft">📝 Rascunho</option>
+                        <option value="active">✅ Ativo</option>
+                        <option value="in_review">👀 Em Revisão</option>
+                        <option value="approved">✅ Aprovado</option>
+                        <option value="done">🎯 Concluído</option>
+                    </select>
+                </div>
+                
+                <!-- Ordenação -->
+                <div class="flex flex-col">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <i class="fas fa-sort mr-1"></i>
+                        Ordenar por:
+                    </label>
+                    <select id="sortOrder" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-white">
+                        <option value="newest">📅 Mais Recentes</option>
+                        <option value="oldest">📅 Mais Antigos</option>
+                        <option value="title-asc">🔤 Título (A-Z)</option>
+                        <option value="title-desc">🔤 Título (Z-A)</option>
+                        <option value="product">📦 Por Produto</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Botão Limpar Filtros -->
+            <div class="flex justify-end">
+                <button onclick="clearFilters()" class="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                    <i class="fas fa-eraser"></i>
+                    <span>Limpar Filtros</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Épicos -->
+    <div id="epics-list" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {% if epics_data %}
+            {% for epic in epics_data %}
+            <div class="epic-item project-card group hover:shadow-md transition-all duration-200 cursor-pointer" 
+                 data-title="{{ epic.title|lower }}"
+                 data-description="{{ epic.description|lower }}"
+                 data-product-name="{{ epic.product_name|lower }}"
+                 data-product-id="{{ epic.product_id }}"
+                 data-status="{{ epic.status }}"
+                 data-created="{{ epic.created_at_raw }}"
+                 data-id="{{ epic.id }}"
+                 onclick="navigateToStoriesWithEpic({{ epic.id }}, '{{ epic.title|replace("'", "\\'") }}')">>
+                
+                <!-- Header do Card -->
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 line-clamp-2 mb-2">
+                            {{ epic.title }}
+                        </h3>
+                        <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <i class="fas fa-box"></i>
+                            <span>{{ epic.product_name }}</span>
+                            <span>•</span>
+                            <i class="fas fa-calendar-alt"></i>
+                            <span>{{ epic.created_at }}</span>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2 items-end">
+                        <span class="badge badge-{{ epic.status }} flex-shrink-0">
+                            {% if epic.status == 'active' %}
+                                <i class="fas fa-play mr-1"></i>Ativo
+                            {% elif epic.status == 'draft' %}
+                                <i class="fas fa-edit mr-1"></i>Rascunho
+                            {% elif epic.status == 'in_review' %}
+                                <i class="fas fa-eye mr-1"></i>Em Revisão
+                            {% elif epic.status == 'approved' %}
+                                <i class="fas fa-check mr-1"></i>Aprovado
+                            {% elif epic.status == 'done' %}
+                                <i class="fas fa-check-circle mr-1"></i>Concluído
+                            {% else %}
+                                {{ epic.status | capitalize }}
+                            {% endif %}
+                        </span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">#{{ epic.id }}</span>
+                    </div>
+                </div>
+                
+                <!-- Descrição -->
+                <div class="mb-4">
+                    <p class="text-gray-600 dark:text-gray-400 text-sm line-clamp-3 leading-relaxed">
+                        {{ epic.description }}
+                    </p>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="mb-4">
+                    <div class="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-2">
+                        <span class="flex items-center gap-1">
+                            <i class="fas fa-chart-line"></i>
+                            Progresso
+                        </span>
+                        <span class="font-medium">{{ epic.progress | default(0) }}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                        <div class="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300" 
+                             style="width: {{ epic.progress | default(0) }}%"></div>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-3 gap-3 mb-4 px-6">
+                    <!-- Histórias -->
+                    <div class="stat-card-stories bg-blue-50 border border-blue-200 rounded-lg p-3 text-center hover:bg-blue-100 transition-colors stat-card-hover dark:bg-blue-900/20 dark:border-blue-700 dark:hover:bg-blue-900/30">
+                        <div class="flex flex-col items-center">
+                            <i class="fas fa-file-text text-blue-600 mb-1 dark:text-blue-400"></i>
+                            <span class="text-sm font-semibold text-blue-900 dark:text-blue-300">{{ epic.totalStories | default(0) }}</span>
+                            <span class="text-xs text-blue-700 dark:text-blue-400">Histórias</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Requisitos -->
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-center hover:bg-green-100 transition-colors stat-card-hover dark:bg-green-900/20 dark:border-green-700 dark:hover:bg-green-900/30">
+                        <div class="flex flex-col items-center">
+                            <i class="fas fa-list-ul text-green-600 mb-1 dark:text-green-400"></i>
+                            <span class="text-sm font-semibold text-green-900 dark:text-green-300">{{ epic.totalRequirements | default(0) }}</span>
+                            <span class="text-xs text-green-700 dark:text-green-400">Requisitos</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Data de Criação -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center hover:bg-gray-100 transition-colors stat-card-hover dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700">
+                        <div class="flex flex-col items-center">
+                            <i class="fas fa-calendar text-gray-600 mb-1 dark:text-gray-400"></i>
+                            <span class="text-xs font-semibold text-gray-900 dark:text-gray-300">{{ epic.created_at[:10] if epic.created_at else 'N/A' }}</span>
+                            <span class="text-xs text-gray-700 dark:text-gray-400">Criado</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons Footer -->
+                <div class="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-gray-600 px-6 pb-6">
+                    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <i class="fas fa-eye"></i>
+                        <span>Clique para detalhes</span>
+                    </div>
+                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <button onclick="event.stopPropagation(); editEpic({{ epic.id }})" 
+                                class="btn-icon text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20" 
+                                title="Editar Épico">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="event.stopPropagation(); generateStories({{ epic.id }})" 
+                                class="btn-icon text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20" 
+                                title="Gerar Histórias">
+                            <i class="fas fa-magic"></i>
+                        </button>
+                        <button onclick="event.stopPropagation(); deleteEpic({{ epic.id }})" 
+                                class="btn-icon text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" 
+                                title="Excluir Épico">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <!-- Estado Vazio - Nenhum Épico -->
+            <div id="noEpicsMessage" class="col-span-full">
+                <div class="text-center py-12">
+                    <div class="mx-auto w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-6">
+                        <i class="fas fa-bullseye text-gray-400 dark:text-gray-500 text-3xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Nenhum épico encontrado</h3>
+                    <p class="text-gray-600 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+                        Você ainda não criou nenhum épico. Comece gerando com IA ou criando um novo épico!
+                    </p>
+                    <div class="flex gap-3 justify-center">
+                        <button onclick="openGenerateEpicsModal()" class="btn-primary">
+                            <i class="fas fa-magic mr-2"></i>
+                            Gerar com IA
+                        </button>
+                        <button onclick="openCreateEpicModal()" class="btn-secondary">
+                            <i class="fas fa-plus mr-2"></i>
+                            Novo Épico
+                        </button>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+        
+        <!-- Estado Vazio - Nenhum Resultado de Busca -->
+        <div id="noResultsMessage" class="col-span-full" style="display: none;">
+            <div class="text-center py-12">
+                <div class="mx-auto w-24 h-24 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-6">
+                    <i class="fas fa-search text-blue-400 dark:text-blue-400 text-3xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Nenhum resultado encontrado</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+                    Não encontramos épicos que correspondam aos seus critérios de busca. Tente termos diferentes.
+                </p>
+                <div class="flex gap-3 justify-center">
+                    <button onclick="clearFilters()" class="btn-primary">
+                        <i class="fas fa-eraser mr-2"></i>
+                        Limpar Filtros
+                    </button>
+                    <button onclick="openCreateEpicModal()" class="btn-secondary">
+                        <i class="fas fa-plus mr-2"></i>
+                        Novo Épico
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensagens de Feedback com Barra de Progresso -->
+    <div id="feedback-message" class="mt-4 p-4 rounded-lg text-center font-medium" style="display: none;">
+        <div id="feedback-content"></div>
+        <div id="progress-container" class="mt-3" style="display: none;">
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div id="progress-bar" class="bg-blue-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div id="progress-text" class="text-xs text-gray-600 mt-1"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Gerar Épicos com IA -->
+<div id="generateEpicsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="text-xl font-semibold dark:text-white">Gerar Épicos com IA</h2>
+            <button onclick="closeModal('generateEpicsModal')" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="generateEpicsForm" onsubmit="generateEpics(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="productSelect" class="dark:text-gray-300">Selecione um Produto *</label>
+                    <select id="productSelect" name="product_id" required 
+                            class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                        <option value="">Carregando produtos...</option>
+                        {# Opções serão carregadas via JavaScript #}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="customPrompt" class="dark:text-gray-300">Ajustar Prompt (Opcional)</label>
+                    <textarea id="customPrompt" name="custom_prompt" rows="4"
+                              placeholder="Ex: 'Foque em funcionalidades de segurança e privacidade.'"
+                              class="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"></textarea>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Isso adicionará instruções extras ao prompt padrão da IA.</p>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('generateEpicsModal')" class="btn-secondary">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-magic mr-2"></i> Gerar Épicos
+                </button>
+            </div>
+        </form>
+        <div id="modal-message" class="mt-4 p-3 rounded-lg text-center" style="display: none;"></div>
+    </div>
+</div>
+
+<!-- Modal para Criar Novo Épico (Manualmente) -->
+<div id="createEpicModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="text-xl font-semibold dark:text-white">Criar Novo Épico</h2>
+            <button onclick="closeModal('createEpicModal')" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="createEpicForm" onsubmit="createEpic(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newEpicProductSelect" class="dark:text-gray-300">Produto *</label>
+                    <select id="newEpicProductSelect" name="product_id" required 
+                            class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                        <option value="">Carregando produtos...</option>
+                        {# Opções serão carregadas via JavaScript #}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="epicTitle" class="dark:text-gray-300">Título do Épico *</label>
+                    <input type="text" id="epicTitle" name="title" required 
+                           placeholder="Ex: Gestão de Usuários, Módulo de Pagamento..."
+                           class="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400">
+                </div>
+                <div class="form-group">
+                    <label for="epicDescription" class="dark:text-gray-300">Descrição *</label>
+                    <textarea id="epicDescription" name="description" required rows="3"
+                              placeholder="Descreva o objetivo e escopo do épico..."
+                              class="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('createEpicModal')" class="btn-secondary">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary">
+                    Criar Épico
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para Editar Épico -->
+<div id="editEpicModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="text-xl font-semibold dark:text-white">Editar Épico</h2>
+            <button onclick="closeModal('editEpicModal')" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="editEpicForm" onsubmit="updateEpic(event)">
+            <div class="modal-body">
+                <input type="hidden" id="editEpicId" name="epic_id">
+                
+                <!-- Aviso sobre histórias associadas -->
+                <div id="editWarningMessage" class="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg" style="display: none;">
+                    <div class="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span class="font-medium">Atenção:</span>
+                    </div>
+                    <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                        Este épico possui histórias associadas. O título e descrição não podem ser alterados.
+                    </p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editEpicTitle" class="dark:text-gray-300">Título do Épico *</label>
+                    <input type="text" id="editEpicTitle" name="title" required 
+                           placeholder="Ex: Gestão de Usuários, Módulo de Pagamento..."
+                           class="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400">
+                </div>
+                
+                <div class="form-group">
+                    <label for="editEpicDescription" class="dark:text-gray-300">Descrição *</label>
+                    <textarea id="editEpicDescription" name="description" required rows="3"
+                              placeholder="Descreva o objetivo e escopo do épico..."
+                              class="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editEpicStatus" class="dark:text-gray-300">Status *</label>
+                    <select id="editEpicStatus" name="status" required 
+                            class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                        <option value="active">✅ Ativo</option>
+                        <option value="in_review">👀 Em Revisão</option>
+                        <option value="approved">✅ Aprovado</option>
+                        <option value="done">🎯 Concluído</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('editEpicModal')" class="btn-secondary">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary">
+                    <i class="fas fa-save mr-2"></i>
+                    Salvar Alterações
+                </button>
+            </div>
+        </form>
+        <div id="modal-message-edit" class="mt-4 p-3 rounded-lg text-center" style="display: none;"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Arrays para armazenar dados originais para filtragem
+    let allEpics = [];
+    let allProducts = [];
+    let searchTimeout;
+
+    // Inicializar épicos e carregar produtos ao carregar a página
+    document.addEventListener('DOMContentLoaded', function() {
+        allEpics = Array.from(document.querySelectorAll('.epic-item'));
+        updateResultsCount();
+        loadProductsForFilter();
+        
+        // Listener para atualizações de requisitos de outras páginas
+        window.addEventListener('requirementStatusChanged', function(event) {
+            console.log('Evento recebido: requisito atualizado, recarregando estatísticas dos épicos');
+            loadEpicStatistics();
+        });
+        
+        // Verificar se há flag de atualização pendente no localStorage
+        const updateFlag = localStorage.getItem('epicProgressUpdateNeeded');
+        if (updateFlag) {
+            try {
+                const flagData = JSON.parse(updateFlag);
+                // Se o flag foi criado nos últimos 30 segundos, atualizar
+                const flagTime = new Date(flagData.timestamp);
+                const now = new Date();
+                if ((now - flagTime) < 30000) { // 30 segundos
+                    console.log('Flag de atualização detectado, recarregando estatísticas dos épicos');
+                    loadEpicStatistics();
+                }
+                localStorage.removeItem('epicProgressUpdateNeeded'); // Limpar flag
+            } catch (e) {
+                localStorage.removeItem('epicProgressUpdateNeeded'); // Limpar flag inválido
+            }
+        }
+        
+        // Carregar estatísticas dos épicos
+        loadEpicStatistics();
+        
+        // Adicionar eventos de busca e filtro
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(filterEpics, 300);
+        });
+        
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimeout);
+                filterEpics();
+            }
+        });
+
+        // Eventos para filtros
+        document.getElementById('productFilter').addEventListener('change', filterEpics);
+        document.getElementById('statusFilter').addEventListener('change', filterEpics);
+        document.getElementById('sortOrder').addEventListener('change', sortEpics);
+    });
+
+    // Função para carregar estatísticas de todos os épicos
+    async function loadEpicStatistics() {
+        const epicCards = document.querySelectorAll('.epic-item[data-id]');
+        
+        for (const epicCard of epicCards) {
+            const epicId = epicCard.getAttribute('data-id');
+            if (epicId) {
+                try {
+                    await refreshEpicStats(epicId);
+                } catch (error) {
+                    console.error(`Erro ao carregar estatísticas do épico ${epicId}:`, error);
+                }
+            }
+        }
+    }
+
+    // Carregar produtos para o filtro
+    async function loadProductsForFilter() {
+        try {
+            const response = await authenticatedFetch('/products', { method: 'GET' });
+            if (response.ok) {
+                allProducts = await response.json();
+                const productFilter = document.getElementById('productFilter');
+                
+                allProducts.forEach(product => {
+                    const option = document.createElement('option');
+                    option.value = product.id;
+                    option.textContent = product.name;
+                    productFilter.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Erro ao carregar produtos para filtro:', error);
+        }
+    }
+
+    // Função de filtragem de épicos
+    function filterEpics() {
+        const searchInput = document.getElementById('searchInput');
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const productFilter = document.getElementById('productFilter').value;
+        const statusFilter = document.getElementById('statusFilter').value;
+        const noResultsMessage = document.getElementById('noResultsMessage');
+        const noEpicsMessage = document.getElementById('noEpicsMessage');
+        let visibleCount = 0;
+
+        // Adicionar classe de loading
+        searchInput.classList.add('search-loading');
+
+        setTimeout(() => {
+            allEpics.forEach(epic => {
+                const title = epic.getAttribute('data-title') || '';
+                const description = epic.getAttribute('data-description') || '';
+                const productName = epic.getAttribute('data-product-name') || '';
+                const productId = epic.getAttribute('data-product-id') || '';
+                const status = epic.getAttribute('data-status') || '';
+
+                // Critérios de busca
+                const searchableText = `${title} ${description} ${productName}`;
+                let matchesSearch = searchTerm === '' || searchableText.includes(searchTerm);
+                let matchesProduct = productFilter === '' || productId === productFilter;
+                let matchesStatus = statusFilter === '' || status === statusFilter;
+
+                if (matchesSearch && matchesProduct && matchesStatus) {
+                    epic.style.display = 'block';
+                    epic.classList.remove('filtered-out');
+                    visibleCount++;
+                } else {
+                    epic.style.display = 'none';
+                    epic.classList.add('filtered-out');
+                }
+            });
+
+            // Mostrar/ocultar mensagens
+            if (noEpicsMessage) noEpicsMessage.style.display = 'none';
+            
+            if (visibleCount === 0 && (searchTerm !== '' || productFilter !== '' || statusFilter !== '')) {
+                noResultsMessage.style.display = 'block';
+            } else {
+                noResultsMessage.style.display = 'none';
+            }
+
+            updateResultsCount();
+            searchInput.classList.remove('search-loading');
+        }, 150);
+    }
+
+    // Função de ordenação de épicos
+    function sortEpics() {
+        const sortOrder = document.getElementById('sortOrder').value;
+        const epicsList = document.getElementById('epics-list');
+        
+        const epicItems = Array.from(document.querySelectorAll('.epic-item'));
+        
+        epicItems.sort((a, b) => {
+            switch (sortOrder) {
+                case 'newest':
+                    const dateA = new Date(a.getAttribute('data-created') || '1970-01-01');
+                    const dateB = new Date(b.getAttribute('data-created') || '1970-01-01');
+                    return dateB - dateA;
+                case 'oldest':
+                    const dateC = new Date(a.getAttribute('data-created') || '1970-01-01');
+                    const dateD = new Date(b.getAttribute('data-created') || '1970-01-01');
+                    return dateC - dateD;
+                case 'title-asc':
+                    const titleA = (a.getAttribute('data-title') || '').toLowerCase();
+                    const titleB = (b.getAttribute('data-title') || '').toLowerCase();
+                    return titleA.localeCompare(titleB);
+                case 'title-desc':
+                    const titleC = (a.getAttribute('data-title') || '').toLowerCase();
+                    const titleD = (b.getAttribute('data-title') || '').toLowerCase();
+                    return titleD.localeCompare(titleC);
+                case 'product':
+                    const productA = (a.getAttribute('data-product-name') || '').toLowerCase();
+                    const productB = (b.getAttribute('data-product-name') || '').toLowerCase();
+                    return productA.localeCompare(productB);
+                default:
+                    return 0;
+            }
+        });
+
+        // Reordenar elementos no DOM
+        epicsList.innerHTML = '';
+        epicItems.forEach(item => {
+            epicsList.appendChild(item);
+        });
+
+        updateResultsCount();
+    }
+
+    // Limpar filtros
+    function clearFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('productFilter').value = '';
+        document.getElementById('statusFilter').value = '';
+        document.getElementById('sortOrder').value = 'newest';
+        
+        clearTimeout(searchTimeout);
+        
+        allEpics.forEach(epic => {
+            epic.style.display = 'block';
+            epic.classList.remove('filtered-out');
+        });
+
+        document.getElementById('noResultsMessage').style.display = 'none';
+        
+        sortEpics();
+        updateResultsCount();
+    }
+
+    // Atualizar contador de resultados
+    function updateResultsCount() {
+        const visibleEpics = allEpics.filter(epic => 
+            epic.style.display !== 'none'
+        ).length;
+        
+        document.getElementById('resultsCount').textContent = visibleEpics;
+    }
+
+    // Funções de Modal (reutilizadas de main.js, mas aqui para garantir que existem)
+    function openGenerateEpicsModal() {
+        document.getElementById('generateEpicsModal').style.display = 'flex';
+        // Chamada para carregar produtos no select do modal de geração
+        loadProductsIntoSelect('productSelect'); 
+    }
+
+    function openCreateEpicModal() {
+        document.getElementById('createEpicModal').style.display = 'flex';
+        // Chamada para carregar produtos no select do modal de criação manual
+        loadProductsIntoSelect('newEpicProductSelect'); 
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    // Função para carregar produtos no select de modais
+    async function loadProductsIntoSelect(selectId) {
+        const productSelect = document.getElementById(selectId);
+        productSelect.innerHTML = '<option value="">Carregando produtos...</option>'; // Limpa e mostra loading
+
+        try {
+            // authenticatedFetch está em main.js
+            const response = await authenticatedFetch('/products', { method: 'GET' }); // <--- Busca PRODUTOS
+            if (response.ok) {
+                const products = await response.json();
+                productSelect.innerHTML = '<option value="">Selecione um produto</option>'; // Reset após carregar
+
+                products.forEach(product => {
+                    const option = document.createElement('option');
+                    option.value = product.id;
+                    option.textContent = product.name;
+                    productSelect.appendChild(option);
+                });
+            } else {
+                const errorData = await response.json();
+                console.error('Erro ao carregar produtos para o select:', errorData);
+                productSelect.innerHTML = '<option value="">Erro ao carregar produtos</option>';
+            }
+        } catch (error) {
+            console.error('Erro de rede ao carregar produtos para o select:', error);
+            productSelect.innerHTML = '<option value="">Erro de conexão</option>';
+        }
+    }
+
+    // --- NOVA FUNÇÃO: loadEpicsIntoSelect (para carregar épicos no select) ---
+    async function loadEpicsIntoSelect(selectId) {
+        const epicSelect = document.getElementById(selectId);
+        epicSelect.innerHTML = '<option value="">Carregando épicos...</option>'; // Limpa e mostra loading
+
+        try {
+            // Chamar a NOVA rota de API para listar épicos do usuário
+            const response = await authenticatedFetch('/epics/api/user', { method: 'GET' }); 
+            if (response.ok) {
+                const epics = await response.json();
+                epicSelect.innerHTML = '<option value="">Selecione um épico</option>'; // Reset após carregar
+
+                epics.forEach(epic => {
+                    const option = document.createElement('option');
+                    option.value = epic.id;
+                    option.textContent = epic.title; // Exibe o título do épico
+                    epicSelect.appendChild(option);
+                });
+            } else {
+                const errorData = await response.json();
+                console.error('Erro ao carregar épicos para o select:', errorData);
+                epicSelect.innerHTML = '<option value="">Erro ao carregar épicos</option>';
+            }
+        } catch (error) {
+            console.error('Erro de rede ao carregar épicos para o select:', error);
+            epicSelect.innerHTML = '<option value="">Erro de conexão</option>';
+        }
+    }
+
+
+    // Função para disparar a geração de épicos via IA
+    async function generateEpics(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const productId = formData.get('product_id');
+        const customPrompt = formData.get('custom_prompt');
+        const modalMessageDiv = document.getElementById('modal-message');
+        const generateButton = form.querySelector('button[type="submit"]');
+
+        modalMessageDiv.style.display = 'none'; // Esconde mensagens anteriores
+        generateButton.disabled = true; // Desabilita o botão para evitar cliques múltiplos
+        generateButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Gerando...'; // Feedback visual
+
+        if (!productId) {
+            modalMessageDiv.style.display = 'block';
+            modalMessageDiv.style.backgroundColor = '#f8d7da';
+            modalMessageDiv.style.color = '#721c24';
+            modalMessageDiv.textContent = 'Por favor, selecione um produto.';
+            generateButton.disabled = false;
+            generateButton.innerHTML = '<i class="fas fa-magic mr-2"></i> Gerar Épicos';
+            return;
+        }
+
+        try {
+            // A rota é /epics/generate/<product_id> (POST)
+            const response = await authenticatedFetch(`/epics/generate/${productId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ custom_prompt: customPrompt }) // Envia custom_prompt se houver
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#d4edda';
+                modalMessageDiv.style.color = '#155724';
+                modalMessageDiv.textContent = data.message || 'Épicos gerados com sucesso!';
+                
+                setTimeout(() => {
+                    closeModal('generateEpicsModal');
+                    location.reload(); // Recarrega a página para ver os novos épicos
+                }, 2000);
+
+            } else {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#f8d7da';
+                modalMessageDiv.style.color = '#721c24';
+                modalMessageDiv.textContent = data.message || 'Erro ao gerar épicos.';
+                console.error('Erro na resposta da API ao gerar épicos:', data); // Use 'data' para ver a resposta do servidor
+            }
+        } catch (error) {
+            modalMessageDiv.style.display = 'block';
+            modalMessageDiv.style.backgroundColor = '#f8d7da';
+            modalMessageDiv.style.color = '#721c24';
+            modalMessageDiv.textContent = 'Ocorreu um erro de rede ou servidor ao gerar épicos.';
+            console.error('Erro de rede ao gerar épicos:', error);
+        } finally {
+            generateButton.disabled = false;
+            generateButton.innerHTML = '<i class="fas fa-magic mr-2"></i> Gerar Épicos';
+        }
+    }
+
+    // Função para Criar Épico Manualmente
+    async function createEpic(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const productId = formData.get('product_id');
+        const title = formData.get('title');
+        const description = formData.get('description');
+        const modalMessageDiv = document.getElementById('modal-message'); // Reutilizando para este modal
+        const createButton = form.querySelector('button[type="submit"]');
+
+        modalMessageDiv.style.display = 'none';
+        createButton.disabled = true;
+        createButton.textContent = 'Criando...';
+
+        try {
+            const response = await authenticatedFetch('/epics', { // Rota POST /epics
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ product_id: productId, title, description })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#d4edda';
+                modalMessageDiv.style.color = '#155724';
+                modalMessageDiv.textContent = data.message || 'Épico criado manualmente com sucesso!';
+                
+                setTimeout(() => {
+                    closeModal('createEpicModal');
+                    location.reload();
+                }, 2000);
+
+            } else {
+                modalMessageDiv.style.display = 'block';
+                modalMessageDiv.style.backgroundColor = '#f8d7da';
+                modalMessageDiv.style.color = '#721c24';
+                modalMessageDiv.textContent = data.message || 'Erro ao criar épico.';
+                console.error('Erro na resposta da API ao criar épico:', data);
+            }
+        } catch (error) {
+            modalMessageDiv.style.display = 'block';
+            modalMessageDiv.style.backgroundColor = '#f8d7da';
+            modalMessageDiv.style.color = '#721c24';
+            modalMessageDiv.textContent = 'Ocorreu um erro de rede ou servidor ao criar épico.';
+            console.error('Erro de rede ao criar épico:', error);
+        } finally {
+            createButton.disabled = false;
+            createButton.textContent = 'Criar Épico';
+        }
+    }
+
+    // Funções de Ação para cada épico
+    function navigateToEpicDetail(epicId) {
+        window.location.href = `/epics/${epicId}`;
+    }
+
+    // Nova função para navegar para histórias filtradas por épico
+    function navigateToStoriesWithEpic(epicId, epicTitle) {
+        // Debug logs
+        console.log('Navegando para histórias do épico:', { epicId, epicTitle });
+        
+        // Usar a URL do Flask url_for para garantir a rota correta
+        const baseUrl = "{{ url_for('user_story_bp.stories_page') }}";
+        const url = `${baseUrl}?epic_id=${epicId}&epic_title=${encodeURIComponent(epicTitle)}`;
+        
+        console.log('URL construída:', url);
+        
+        // Usar a função de navegação autenticada do main.js
+        navigateWithToken(url);
+    }
+
+    function editEpic(epicId) {
+        // Abrir modal de edição
+        openEditEpicModal(epicId);
+    }
+
+    // Função para abrir modal de edição
+    async function openEditEpicModal(epicId) {
+        const modal = document.getElementById('editEpicModal');
+        const epicIdInput = document.getElementById('editEpicId');
+        const titleInput = document.getElementById('editEpicTitle');
+        const descriptionInput = document.getElementById('editEpicDescription');
+        const statusSelect = document.getElementById('editEpicStatus');
+        const warningMessage = document.getElementById('editWarningMessage');
+        const modalMessage = document.getElementById('modal-message-edit');
+        
+        // Limpar mensagens anteriores
+        modalMessage.style.display = 'none';
+        warningMessage.style.display = 'none';
+        
+        try {
+            // Buscar dados do épico e estatísticas em paralelo
+            const [epicResponse, statsResponse] = await Promise.all([
+                authenticatedFetch(`/epics/${epicId}`, { method: 'GET' }),
+                authenticatedFetch(`/epics/${epicId}/stats`, { method: 'GET' })
+            ]);
+            
+            if (epicResponse.ok && statsResponse.ok) {
+                const epicData = await epicResponse.json();
+                const statsData = await statsResponse.json();
+                
+                // Preencher formulário
+                epicIdInput.value = epicData.id;
+                titleInput.value = epicData.title;
+                descriptionInput.value = epicData.description;
+                statusSelect.value = epicData.status;
+                
+                // Verificar se há histórias associadas
+                const hasStories = statsData.totalStories && statsData.totalStories > 0;
+                
+                if (hasStories) {
+                    // Mostrar aviso e desabilitar campos
+                    warningMessage.style.display = 'block';
+                    titleInput.disabled = true;
+                    descriptionInput.disabled = true;
+                    titleInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                    descriptionInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                } else {
+                    // Habilitar campos
+                    titleInput.disabled = false;
+                    descriptionInput.disabled = false;
+                    titleInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                    descriptionInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
+                }
+                
+                // Mostrar modal
+                modal.style.display = 'flex';
+                
+            } else {
+                let errorMessage = 'Erro ao carregar dados do épico';
+                if (!epicResponse.ok) {
+                    const errorData = await epicResponse.json();
+                    errorMessage = errorData.message || errorMessage;
+                }
+                showToast(errorMessage, 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao carregar dados do épico:', error);
+            showToast('Erro de conexão ao carregar dados do épico', 'error');
+        }
+    }
+
+    // Função para atualizar épico
+    async function updateEpic(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const epicId = formData.get('epic_id');
+        const title = formData.get('title');
+        const description = formData.get('description');
+        const status = formData.get('status');
+        const modalMessage = document.getElementById('modal-message-edit');
+        const updateButton = form.querySelector('button[type="submit"]');
+        
+        modalMessage.style.display = 'none';
+        updateButton.disabled = true;
+        updateButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Salvando...';
+        
+        try {
+            const response = await authenticatedFetch(`/epics/${epicId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ title, description, status })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                modalMessage.style.display = 'block';
+                modalMessage.style.backgroundColor = '#d4edda';
+                modalMessage.style.color = '#155724';
+                modalMessage.textContent = data.message || 'Épico atualizado com sucesso!';
+                
+                setTimeout(() => {
+                    closeModal('editEpicModal');
+                    location.reload(); // Recarregar para mostrar alterações
+                }, 2000);
+                
+            } else {
+                modalMessage.style.display = 'block';
+                modalMessage.style.backgroundColor = '#f8d7da';
+                modalMessage.style.color = '#721c24';
+                modalMessage.textContent = data.message || 'Erro ao atualizar épico.';
+            }
+        } catch (error) {
+            console.error('Erro ao atualizar épico:', error);
+            modalMessage.style.display = 'block';
+            modalMessage.style.backgroundColor = '#f8d7da';
+            modalMessage.style.color = '#721c24';
+            modalMessage.textContent = 'Erro de conexão ao atualizar épico.';
+        } finally {
+            updateButton.disabled = false;
+            updateButton.innerHTML = '<i class="fas fa-save mr-2"></i> Salvar Alterações';
+        }
+    }
+
+    function generateStories(epicId) {
+        // Gerar histórias diretamente sem confirmação
+        generateStoriesForEpic(epicId);
+    }
+
+    // Sistema de notificações toast
+    function showToast(message, type = 'info') {
+        // Remover toasts existentes
+        const existingToasts = document.querySelectorAll('.toast-notification');
+        existingToasts.forEach(toast => toast.remove());
+
+        // Criar novo toast
+        const toast = document.createElement('div');
+        toast.className = `toast-notification fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-medium max-w-sm transition-all duration-300 transform translate-x-full`;
+        
+        // Definir cor baseada no tipo
+        switch (type) {
+            case 'success':
+                toast.classList.add('bg-green-500');
+                break;
+            case 'error':
+                toast.classList.add('bg-red-500');
+                break;
+            case 'info':
+            default:
+                toast.classList.add('bg-blue-500');
+                break;
+        }
+
+        // Adicionar ícone baseado no tipo
+        let icon = '';
+        switch (type) {
+            case 'success':
+                icon = '<i class="fas fa-check-circle mr-2"></i>';
+                break;
+            case 'error':
+                icon = '<i class="fas fa-exclamation-circle mr-2"></i>';
+                break;
+            case 'info':
+            default:
+                icon = '<i class="fas fa-info-circle mr-2"></i>';
+                break;
+        }
+
+        toast.innerHTML = `
+            <div class="flex items-center">
+                ${icon}
+                <span>${message}</span>
+            </div>
+        `;
+
+        // Adicionar ao DOM
+        document.body.appendChild(toast);
+
+        // Animar entrada
+        setTimeout(() => {
+            toast.classList.remove('translate-x-full');
+        }, 100);
+
+        // Remover automaticamente após 4 segundos
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 300);
+        }, 4000);
+    }
+
+    // Função auxiliar para buscar contagem de histórias com retry
+    async function getStoriesCountWithRetry(epicId, maxRetries = 3, delay = 800) {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`Tentativa ${attempt} de buscar contagem de histórias para épico ${epicId}`);
+                
+                const response = await authenticatedFetch(`/epics/${epicId}/stats`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const count = data.totalStories || 0;
+                    console.log(`Contagem obtida na tentativa ${attempt}: ${count}`);
+                    return count;
+                } else {
+                    console.warn(`Tentativa ${attempt} falhou com status:`, response.status);
+                }
+            } catch (error) {
+                console.warn(`Tentativa ${attempt} falhou com erro:`, error);
+            }
+            
+            // Aguardar antes da próxima tentativa (exceto na última)
+            if (attempt < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay = delay * 1.5; // Aumentar delay progressivamente
+            }
+        }
+        
+        console.error(`Falha ao obter contagem após ${maxRetries} tentativas`);
+        return null;
+    }
+
+    // Animação para contador crescente
+    function animateCounter(element, fromValue, toValue) {
+        const duration = 800; // ms
+        const steps = 20;
+        const stepTime = duration / steps;
+        const stepValue = (toValue - fromValue) / steps;
+        let currentValue = fromValue;
+        let currentStep = 0;
+
+        const interval = setInterval(() => {
+            currentStep++;
+            currentValue += stepValue;
+            
+            if (currentStep >= steps) {
+                element.textContent = toValue;
+                clearInterval(interval);
+            } else {
+                element.textContent = Math.round(currentValue);
+            }
+        }, stepTime);
+    }
+
+    async function generateStoriesForEpic(epicId) {
+        const epicCard = document.querySelector(`[data-id="${epicId}"]`);
+        const storiesCountElement = epicCard ? epicCard.querySelector('.stat-card-stories .text-sm.font-semibold') : null;
+        const originalText = storiesCountElement ? storiesCountElement.textContent : '0';
+        const previousCount = parseInt(originalText) || 0;
+        
+        if (!epicCard || !storiesCountElement) {
+            console.error('Elementos não encontrados para épico:', epicId);
+            showToast('Erro: Elementos do card não encontrados', 'error');
+            return;
+        }
+
+        try {
+            // Feedback visual imediato - estado de loading
+            storiesCountElement.textContent = '...';
+            storiesCountElement.classList.add('stat-loading');
+            
+            // Adicionar classe de highlight no card de histórias
+            const storiesCard = epicCard.querySelector('.stat-card-stories');
+            if (storiesCard) {
+                storiesCard.classList.add('generating-stories');
+            }
+
+            // Adicionar efeito shimmer ao card inteiro
+            epicCard.classList.add('generating-stories');
+
+            // Desabilitar botão para evitar múltiplos cliques
+            const generateButton = document.querySelector(`[onclick*="generateStories(${epicId})"]`);
+            if (generateButton) {
+                generateButton.disabled = true;
+                generateButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+
+            // Feedback visual com toast notification
+            showToast('Gerando histórias com IA...', 'info');
+
+            // Fazer a chamada para gerar histórias
+            console.log(`Iniciando geração de histórias para épico ${epicId}...`);
+            
+            const response = await authenticatedFetch(`/user-stories/generate/${epicId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ custom_prompt: '' })
+            });
+
+            console.log('Resposta da API:', {
+                status: response.status,
+                statusText: response.statusText,
+                url: response.url
+            });
+
+            const data = await response.json();
+            console.log('Dados retornados pela API:', data);
+
+            if (response.ok) {
+                // Atualizar toast para mostrar que está verificando
+                showToast('Histórias geradas! Atualizando contagem...', 'info');
+                
+                // Aguardar um pouco e buscar a contagem real atual
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Tentar buscar contagem atual com retry para garantir que BD foi atualizado
+                const actualNewCount = await getStoriesCountWithRetry(epicId, 3);
+                
+                if (actualNewCount !== null) {
+                    // Animação de contagem crescente com contagem real
+                    animateCounter(storiesCountElement, previousCount, actualNewCount);
+                    
+                    // Feedback de sucesso baseado na contagem real
+                    const generatedCount = actualNewCount - previousCount;
+                    let message;
+                    
+                    if (generatedCount > 0) {
+                        message = `${generatedCount} nova(s) história(s) gerada(s)! Total: ${actualNewCount}`;
+                    } else if (actualNewCount > 0) {
+                        message = `${actualNewCount} história(s) já existem para este épico`;
+                    } else {
+                        message = 'Geração concluída - verificar se foram criadas histórias';
+                    }
+                    
+                    showToast(message, 'success');
+                    
+                } else {
+                    // Fallback para resposta da API de geração
+                    const storiesGenerated = data.user_stories?.length || 0;
+                    const newTotal = Math.max(previousCount, previousCount + storiesGenerated);
+                    
+                    animateCounter(storiesCountElement, previousCount, newTotal);
+                    showToast(`Histórias processadas! Recarregando contagem...`, 'success');
+                    
+                    // Tentar atualizar a contagem após mais um tempo
+                    setTimeout(() => {
+                        refreshEpicStats(epicId);
+                    }, 2000);
+                }
+                
+                // Highlight no card de histórias por alguns segundos
+                setTimeout(() => {
+                    if (storiesCard) {
+                        storiesCard.classList.remove('generating-stories');
+                        storiesCard.classList.add('stats-updated');
+                        
+                        // Remover highlight após animação
+                        setTimeout(() => {
+                            storiesCard.classList.remove('stats-updated');
+                        }, 2000);
+                    }
+                }, 500);
+
+                // Atualizar outras estatísticas do épico
+                setTimeout(() => {
+                    refreshEpicStats(epicId);
+                }, 1000);
+
+            } else {
+                // Erro - restaurar contador e mostrar erro
+                storiesCountElement.textContent = originalText;
+                showToast(data.message || 'Erro ao gerar histórias', 'error');
+                console.error('Erro na resposta da API ao gerar histórias:', data);
+            }
+        } catch (error) {
+            // Erro de rede - restaurar contador
+            console.error('Erro capturado ao gerar histórias:', error);
+            storiesCountElement.textContent = originalText;
+            showToast('Erro de conexão ao gerar histórias: ' + error.message, 'error');
+        } finally {
+            // Remover estado de loading e efeitos
+            storiesCountElement.classList.remove('stat-loading');
+            epicCard.classList.remove('generating-stories');
+            
+            // Garantir limpeza de classes
+            const storiesCard = epicCard.querySelector('.stat-card-stories');
+            if (storiesCard) {
+                storiesCard.classList.remove('generating-stories');
+            }
+
+            // Reabilitar botão
+            const generateButton = document.querySelector(`[onclick*="generateStories(${epicId})"]`);
+            if (generateButton) {
+                generateButton.disabled = false;
+                generateButton.innerHTML = '<i class="fas fa-magic"></i>';
+            }
+        }
+    }
+
+    // Função para atualizar o contador de histórias no card do épico (OBSOLETA - mantida para compatibilidade)
+    function updateEpicStoriesCount(epicId, newCount) {
+        console.log('updateEpicStoriesCount chamada (obsoleta), usando refreshEpicStats ao invés');
+        // Chama a nova função de atualização
+        refreshEpicStats(epicId);
+    }
+
+    // Função para atualizar o progresso do épico (OBSOLETA - mantida para compatibilidade)
+    function updateEpicProgress(epicId) {
+        console.log('updateEpicProgress chamada (obsoleta), usando refreshEpicStats ao invés');
+        // Chama a nova função de atualização
+        refreshEpicStats(epicId);
+    }
+
+    // Função para recalcular estatísticas do épico
+    async function refreshEpicStats(epicId) {
+        try {
+            const response = await authenticatedFetch(`/epics/${epicId}/stats`, {
+                method: 'GET'
+            });
+
+            if (response.ok) {
+                const stats = await response.json();
+                updateEpicStatsInCard(epicId, stats);
+                return stats;
+            } else {
+                console.warn('Erro ao buscar estatísticas do épico:', response.status);
+                return null;
+            }
+        } catch (error) {
+            console.log('Erro ao atualizar estatísticas do épico:', error);
+            return null;
+        }
+    }
+
+    // Função para atualizar todas as estatísticas no card
+    function updateEpicStatsInCard(epicId, stats) {
+        const epicCard = document.querySelector(`[data-id="${epicId}"]`);
+        if (epicCard && stats) {
+            // Adicionar classe de highlight temporariamente
+            epicCard.classList.add('stats-updated');
+            
+            // Atualizar contador de histórias
+            const storiesElement = epicCard.querySelector('.stat-card-stories .text-sm.font-semibold');
+            if (storiesElement && stats.totalStories !== undefined) {
+                animateCounterUpdate(storiesElement, stats.totalStories);
+            }
+            
+            // Atualizar total de requisitos
+            const requirementsElement = epicCard.querySelectorAll('.text-sm.font-semibold')[1];
+            if (requirementsElement && stats.totalRequirements !== undefined) {
+                animateCounterUpdate(requirementsElement, stats.totalRequirements);
+            }
+            
+            // Atualizar progresso
+            if (stats.progress !== undefined) {
+                const progressBar = epicCard.querySelector('.bg-gradient-to-r');
+                const progressText = epicCard.querySelector('.font-medium');
+                
+                if (progressBar && progressText) {
+                    progressBar.classList.add('progress-bar-animated');
+                    progressBar.style.width = stats.progress + '%';
+                    progressText.textContent = stats.progress + '%';
+                }
+            }
+            
+            // Remover highlight após animação
+            setTimeout(() => {
+                epicCard.classList.remove('stats-updated');
+            }, 1000);
+        }
+    }
+
+    // Função auxiliar para animar atualização de contadores
+    function animateCounterUpdate(element, newValue) {
+        const currentValue = parseInt(element.textContent) || 0;
+        
+        if (currentValue !== newValue) {
+            element.style.transition = 'all 0.3s ease';
+            element.style.transform = 'scale(1.2)';
+            element.style.color = '#16a34a';
+            
+            // Animar contagem
+            let start = currentValue;
+            const increment = newValue > start ? 1 : -1;
+            const duration = Math.abs(newValue - start) * 50; // 50ms por número
+            
+            const counter = setInterval(() => {
+                start += increment;
+                element.textContent = start;
+                
+                if (start === newValue) {
+                    clearInterval(counter);
+                    
+                    setTimeout(() => {
+                        element.style.transform = 'scale(1)';
+                        element.style.color = '';
+                    }, 150);
+                }
+            }, duration / Math.abs(newValue - currentValue));
+        }
+    }
+
+    // Função para atualizar a barra de progresso
+    function updateProgress(percentage, message) {
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const progressContainer = document.getElementById('progress-container');
+        
+        if (progressBar && progressText && progressContainer) {
+            progressContainer.style.display = 'block';
+            progressBar.style.width = percentage + '%';
+            progressText.textContent = message;
+        }
+    }
+
+    // Função para mostrar mensagens de feedback melhorada
+    function showFeedbackMessage(message, type = 'info', showProgress = false) {
+        const feedbackDiv = document.getElementById('feedback-message');
+        const feedbackContent = document.getElementById('feedback-content');
+        const progressContainer = document.getElementById('progress-container');
+        
+        if (feedbackDiv && feedbackContent) {
+            feedbackDiv.style.display = 'block';
+            feedbackContent.innerHTML = message; // Usar innerHTML para suportar HTML
+            
+            // Mostrar/ocultar barra de progresso
+            if (progressContainer) {
+                progressContainer.style.display = showProgress ? 'block' : 'none';
+            }
+            
+            // Remover classes anteriores
+            feedbackDiv.className = 'mt-4 p-4 rounded-lg text-center font-medium';
+            
+            // Adicionar classe baseada no tipo
+            switch(type) {
+                case 'success':
+                    feedbackDiv.classList.add('bg-green-100', 'text-green-800', 'border', 'border-green-200');
+                    break;
+                case 'error':
+                    feedbackDiv.classList.add('bg-red-100', 'text-red-800', 'border', 'border-red-200');
+                    break;
+                case 'warning':
+                    feedbackDiv.classList.add('bg-yellow-100', 'text-yellow-800', 'border', 'border-yellow-200');
+                    break;
+                case 'info':
+                default:
+                    feedbackDiv.classList.add('bg-blue-100', 'text-blue-800', 'border', 'border-blue-200');
+                    break;
+            }
+            
+            // Auto-ocultar após determinado tempo
+            const hideTimeout = type === 'success' ? 6000 : (type === 'error' ? 0 : 5000);
+            if (hideTimeout > 0) {
+                setTimeout(() => {
+                    feedbackDiv.style.display = 'none';
+                    if (progressContainer) {
+                        progressContainer.style.display = 'none';
+                    }
+                }, hideTimeout);
+            }
+        }
+    }
+
+    async function deleteEpic(epicId) {
+        const confirmMessage = 'Tem certeza que deseja excluir este épico?\n\nATENÇÃO: Todas as histórias de usuário e requisitos vinculados a este épico também serão excluídos permanentemente.\n\nEsta ação não pode ser desfeita.';
+        
+        if (confirm(confirmMessage)) {
+            try {
+                showToast('Excluindo épico, histórias e requisitos...', 'info');
+                
+                const response = await authenticatedFetch(`/epics/${epicId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (response.ok) {
+                    showToast('Épico, histórias e requisitos excluídos com sucesso!', 'success');
+                    
+                    // Remover o card do épico da interface
+                    const epicCard = document.querySelector(`[data-id="${epicId}"]`);
+                    if (epicCard) {
+                        epicCard.style.transition = 'all 0.3s ease';
+                        epicCard.style.opacity = '0';
+                        epicCard.style.transform = 'scale(0.95)';
+                        
+                        setTimeout(() => {
+                            epicCard.remove();
+                            // Atualizar contador
+                            allEpics = Array.from(document.querySelectorAll('.epic-item'));
+                            updateResultsCount();
+                            
+                            // Verificar se não há mais épicos
+                            if (allEpics.length === 0) {
+                                const noEpicsMessage = document.getElementById('noEpicsMessage');
+                                if (noEpicsMessage) {
+                                    noEpicsMessage.classList.remove('hidden');
+                                }
+                            }
+                        }, 300);
+                    }
+                } else {
+                    const errorData = await response.json();
+                    showToast(errorData.message || 'Erro ao excluir épico', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao excluir épico:', error);
+                showToast('Erro de conexão ao excluir épico', 'error');
+            }
+        }
+    }
+
+    // Função para navegação geral aos épicos
+    function navigateToEpics() {
+        window.location.href = '/epics';
+    }
+
+</script>
+{% endblock %}

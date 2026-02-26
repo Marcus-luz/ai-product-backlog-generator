@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - AI Product Owner{% endblock %}
+
+{% block content %}
+<div class="p-8">
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-2">Gerencie seus produtos e histórias de usuário</p>
+        </div>
+        <button onclick="openCreateProductModal()" class="btn-primary">
+            <i class="fas fa-plus mr-2"></i>
+            Novo Produto
+        </button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Total de Projetos</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_projects }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-500">
+                        {% if projects_this_month > 0 %}
+                            +{{ projects_this_month }} este mês
+                        {% else %}
+                            Nenhum novo este mês
+                        {% endif %}
+                    </p>
+                </div>
+                <i class="fas fa-book-open text-gray-400 dark:text-gray-500 text-xl"></i>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Épicos Ativos</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_epics }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-500">
+                        {% if total_epics > 0 %}
+                            Em todos os projetos
+                        {% else %}
+                            Nenhum épico criado
+                        {% endif %}
+                    </p>
+                </div>
+                <i class="fas fa-bullseye text-gray-400 dark:text-gray-500 text-xl"></i>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Histórias de Usuário</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_stories }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-500">
+                        {% if stories_this_month > 0 %}
+                            +{{ stories_this_month }} este mês
+                        {% else %}
+                            Nenhuma nova este mês
+                        {% endif %}
+                    </p>
+                </div>
+                <i class="fas fa-check-square text-gray-400 dark:text-gray-500 text-xl"></i>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Requisitos</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_requirements }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-500">
+                        {% if total_requirements > 0 %}
+                            Total gerados
+                        {% else %}
+                            Nenhum requisito ainda
+                        {% endif %}
+                    </p>
+                </div>
+                <i class="fas fa-chart-bar text-gray-400 dark:text-gray-500 text-xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projects Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for project in projects %}
+        <div class="project-card cursor-pointer hover:shadow-lg transition-shadow duration-200" 
+             onclick="debugNavigateToProduct({{ project.id }})">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ project.name }}</h3>
+                <span class="badge badge-{{ project.status }}">
+                    {% if project.status == 'active' %}Ativo
+                    {% elif project.status == 'draft' %}Rascunho
+                    {% else %}{{ project.status }}{% endif %}
+                </span>
+            </div>
+            <p class="text-gray-600 dark:text-gray-400 text-sm mb-4">{{ project.description }}</p>
+            
+            <div class="space-y-3">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-600 dark:text-gray-400">Épicos:</span>
+                    <span class="font-medium dark:text-white">{{ project.epics }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-600 dark:text-gray-400">Histórias:</span>
+                    <span class="font-medium dark:text-white">{{ project.stories }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-600 dark:text-gray-400">Requisitos:</span>
+                    <span class="font-medium dark:text-white">{{ project.requirements }}</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500 pt-2 border-t dark:border-gray-600">
+                    <i class="fas fa-clock"></i>
+                    Atualizado em {{ project.lastUpdated }}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Create Product Modal -->
+<div id="createProductModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="text-xl font-semibold dark:text-white">Criar Novo Produto</h2>
+            <button onclick="closeModal('createProductModal')" class="modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="createProductForm" onsubmit="createProduct(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="productName" class="dark:text-gray-300">Nome do Produto *</label>
+                    <input type="text" id="productName" name="name" required 
+                           placeholder="Ex: App de Delivery, Sistema CRM..."
+                           class="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400">
+                </div>
+                
+                <div class="form-group">
+                    <label for="productDescription" class="dark:text-gray-300">Descrição *</label>
+                    <textarea id="productDescription" name="description" required rows="3"
+                              placeholder="Descreva brevemente o que o produto faz..."
+                              class="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="valueProposition" class="dark:text-gray-300">Proposta de Valor *</label>
+                    <textarea id="valueProposition" name="value_proposition" required rows="3" 
+                    placeholder="Que problema este produto resolve?"
+                    class="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="channels_platforms" class="dark:text-gray-300"> Plataformas *</label>
+                    <textarea id="channels_platforms" name="channels_platforms" required rows="1"
+                              placeholder="Quais plataformas o sistema irá suportar?"
+                              class="dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"></textarea>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('createProductModal')" class="btn-secondary">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary">
+                    Criar Produto
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openCreateProductModal() {
+    document.getElementById('createProductModal').style.display = 'flex';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+// Função de debug para verificar o que está acontecendo
+function debugNavigateToProduct(productId) {
+    console.log('=== DEBUG NAVIGATE TO PRODUCT ===');
+    console.log('Product ID:', productId);
+    
+    // Verificar tokens no localStorage
+    const token = localStorage.getItem('token');
+    const accessToken = localStorage.getItem('access_token');
+    
+    console.log('token found:', token ? 'YES' : 'NO');
+    console.log('access_token found:', accessToken ? 'YES' : 'NO');
+    
+    if (token) {
+        console.log('token value (first 20 chars):', token.substring(0, 20) + '...');
+    }
+    if (accessToken) {
+        console.log('access_token value (first 20 chars):', accessToken.substring(0, 20) + '...');
+    }
+    
+    // Construir URL manualmente
+    const url = `/products/${productId}/detail`;
+    console.log('Target URL:', url);
+    
+    // Tentar navegar
+    if (token || accessToken) {
+        const finalToken = token || accessToken;
+        const finalUrl = `${url}?token=${encodeURIComponent(finalToken)}`;
+        console.log('Final URL with token:', finalUrl);
+        console.log('Navigating...');
+        window.location.href = finalUrl;
+    } else {
+        console.log('NO TOKEN FOUND - redirecting to login');
+        alert('Token não encontrado. Você precisa fazer login novamente.');
+        window.location.href = '/auth/login_page';
+    }
+}
+
+// Função para Criar Produto (usada pelo dashboard.html)
+async function createProduct(event) {
+    event.preventDefault(); // Impede o envio padrão do formulário
+    
+    const formData = new FormData(event.target);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        // Usa a função authenticatedFetch (que está em main.js)
+        // Ela já cuida de adicionar o token JWT (do cookie) e lidar com a autenticação.
+        const response = await authenticatedFetch('/products', { // Sua rota API é /products
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                // REMOVA A LINHA 'Authorization' AQUI, authenticatedFetch JÁ ADICIONA
+                // 'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            closeModal('createProductModal');
+            location.reload(); // Recarrega a página para ver o novo produto
+        } else {
+            const errorData = await response.json();
+            alert('Erro ao criar produto: ' + (errorData.message || 'Erro desconhecido.'));
+            console.error('Erro na resposta da API:', errorData);
+        }
+    } catch (error) {
+        console.error('Erro ao criar produto:', error);
+        // A mensagem de erro de rede genérica só deve aparecer se não for um erro de autenticação
+        // (authenticatedFetch já redireciona para login em caso de 401/403)
+        if (error.message !== 'Authentication expired or unauthorized') { 
+            alert('Ocorreu um erro de rede ou servidor ao tentar criar o produto.');
+        }
+    }
+}
+</script>
+{% endblock %}

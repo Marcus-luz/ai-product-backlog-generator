@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="transition-colors duration-300">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <title>{% block title %}AI Product Owner{% endblock %}</title>
+    <script>
+        // Configurar tema antes do carregamento - sempre modo claro por padrão
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+    <div class="flex h-screen">
+        <div id="sidebar" class="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 w-64">
+            <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <div class="flex items-center gap-2" id="sidebar-brand">
+                    <div class="w-8 h-8 bg-blue-600 dark:bg-blue-500 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-robot text-white text-sm"></i>
+                    </div>
+                    <span class="font-semibold text-gray-900 dark:text-gray-100">AI Product Owner</span>
+                </div>
+                <button id="sidebar-toggle" class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                    <i class="fas fa-chevron-left text-gray-600 dark:text-gray-300"></i>
+                </button>
+            </div>
+
+             <nav class="flex-1 p-4 space-y-2">
+                <a href="javascript:void(0)" onclick="navigateWithToken('{{ url_for('dashboard_bp.dashboard_page') }}')" class="nav-item {% if request.endpoint == 'dashboard_bp.dashboard_page' %}active{% endif %}">
+                    <i class="fas fa-home"></i>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+                <a href="javascript:void(0)" onclick="navigateWithToken('{{ url_for('product_bp.products_page') }}')" class="nav-item {% if request.endpoint == 'product_bp.products_page' %}active{% endif %}">
+                    <i class="fas fa-book-open"></i>
+                    <span class="nav-text">Produtos</span>
+                </a>
+                <a href="javascript:void(0)" onclick="navigateWithToken('{{ url_for('epic_bp.epics_page') }}')" class="nav-item {% if request.endpoint == 'epic_bp.epics_page' %}active{% endif %}">
+                    <i class="fas fa-bullseye"></i>
+                    <span class="nav-text">Épicos</span>
+                </a>
+                <a href="javascript:void(0)" onclick="navigateWithToken('{{ url_for('user_story_bp.stories_page') }}')" class="nav-item {% if request.endpoint == 'user_story_bp.stories_page' %}active{% endif %}">
+                    <i class="fas fa-file-text"></i>
+                    <span class="nav-text">Histórias</span>
+                </a>
+                <a href="javascript:void(0)" onclick="navigateWithToken('{{ url_for('requirement_bp.requirements_page') }}')" class="nav-item {% if request.endpoint == 'requirement_bp.requirements_page' %}active{% endif %}">
+                    <i class="fas fa-check-square"></i>
+                    <span class="nav-text">Requisitos</span>
+                </a>
+                <a href="javascript:void(0)" onclick="navigateWithToken('{{ url_for('backlog_bp.backlog_page') }}')" class="nav-item {% if request.endpoint == 'backlog_bp.backlog_page' %}active{% endif %}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span class="nav-text">Backlog</span>
+                </a>
+                
+            </nav>
+
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                <!-- Toggle de Tema -->
+                <div class="flex items-center justify-between mb-3 p-2 rounded-lg bg-gray-50 dark:bg-gray-800">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-moon text-gray-600 dark:text-gray-300"></i>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Modo Escuro</span>
+                    </div>
+                    <button onclick="toggleTheme()" class="theme-toggle relative inline-flex h-5 w-9 items-center rounded-full bg-gray-300 dark:bg-blue-600 transition-colors">
+                        <span class="inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform translate-x-1 dark:translate-x-5"></span>
+                    </button>
+                </div>
+                
+                <div class="flex items-center gap-3" id="user-info">
+                    <div class="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">PO</span>
+                    </div>
+                    <div class="flex-1 min-w-0 user-details">
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" id="current-username">Product Owner</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate" id="current-user-email">po@empresa.com</p>
+                    </div>
+                </div>
+                <button onclick="logout()" class="w-full mt-3 btn-secondary">
+                    <i class="fas fa-sign-out-alt mr-2"></i>
+                    Sair
+                </button>
+            </div>
+        </div>
+
+        <main class="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <div id="modals-container"></div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
