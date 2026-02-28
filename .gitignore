@@ -5,6 +5,7 @@ __pycache__/
 
 # Outros arquivos .pyc em qualquer diretório
 *.pyc
+*.vscode/
 
 # Diretórios específicos
 **/__pycache__/
