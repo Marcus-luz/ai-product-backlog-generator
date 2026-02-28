@@ -250,22 +250,23 @@ Os logs são organizados em categorias:
 - **Autenticação**: Eventos de login/logout
 
 # 📚 Visualização do Sistema
+- **Login**
 <img width="1158" height="571" alt="AI-Product-Owner" src="https://github.com/user-attachments/assets/101b8af0-12cd-4475-afba-2681c0a7fc8f" />
 
 
-
+- **Produto**
 <img width="1913" height="912" alt="ia produt" src="https://github.com/user-attachments/assets/3ffb59e3-0a13-4f14-9825-1f24a6d8ab6c" />
 
 
-
+- **Épicos**
 <img width="1892" height="902" alt="ia2" src="https://github.com/user-attachments/assets/08da4e4a-ec62-4eca-9165-b084bf04bd96" />
 
 
-
+- **História**
 <img width="1878" height="918" alt="ia3" src="https://github.com/user-attachments/assets/3d53eef5-1e97-4bf1-a53e-9fbaf552bbe3" />
 
 
-
+- **Requisitos**
 <img width="1867" height="913" alt="ia4" src="https://github.com/user-attachments/assets/39e38af4-2158-406d-8a22-55b401101fca" />
 
 
