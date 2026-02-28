@@ -210,10 +210,6 @@ poetry run pytest tests/test_llm_service.py
 - **Testes**: pytest
 - **Frontend**: HTML5, CSS3, JavaScript (templates Jinja2)
 
-## 👥 Equipe
-
-- **Marcus Vinicius da Luz Araujo** 
-
 ## 📝 Notas de Desenvolvimento
 
 ### Comandos Úteis
