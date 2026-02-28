@@ -249,3 +249,9 @@ Os logs são organizados em categorias:
 - **Performance**: Métricas de desempenho
 - **Autenticação**: Eventos de login/logout
 
+## visualização do Sistema
+<img width="1158" height="571" alt="AI-Product-Owner" src="https://github.com/user-attachments/assets/101b8af0-12cd-4475-afba-2681c0a7fc8f" />
+---
+<img width="1913" height="912" alt="ia produt" src="https://github.com/user-attachments/assets/3ffb59e3-0a13-4f14-9825-1f24a6d8ab6c" />
+---
+
