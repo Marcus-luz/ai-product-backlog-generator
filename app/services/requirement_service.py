@@ -1,5 +1,3 @@
-
-
 from app.models.requirement import Requirement
 from app.models.user_story import UserStory
 from app.models.epic import Epic
@@ -25,19 +23,6 @@ class RequirementService:
     def create_requirement(description, user_story_id, priority='medium', generated_by_llm=False, user_id=None):
         """
         Cria um novo requisito no banco de dados.
-        
-        Args:
-            description (str): Descrição do requisito
-            user_story_id (int): ID da história de usuário associada
-            priority (str): Prioridade do requisito (low, medium, high)
-            generated_by_llm (bool): Se foi gerado por IA
-            user_id (int): ID do usuário que criou o requisito
-            
-        Returns:
-            Requirement: O requisito criado
-            
-        Raises:
-            ValueError: Se dados obrigatórios estão ausentes ou inválidos
         """
         if not all([description, user_story_id]):
             raise ValueError("Descrição e ID da história de usuário são obrigatórios.")
@@ -80,17 +65,6 @@ class RequirementService:
     def generate_requirements_for_user_story(user_story_id, user_id=None, custom_prompt_instruction=None):
         """
         Gera requisitos funcionais e critérios de aceite usando IA para uma história de usuário específica.
-        
-        Args:
-            user_story_id (int): ID da história de usuário
-            user_id (int): ID do usuário solicitante
-            custom_prompt_instruction (str): Instruções customizadas para o prompt
-            
-        Returns:
-            list: Lista de requisitos criados
-            
-        Raises:
-            ValueError: Se a história de usuário não for encontrada ou resposta da IA for inválida
         """
         user_story = UserStory.query.get(user_story_id)
         if not user_story:
@@ -114,16 +88,31 @@ class RequirementService:
                 if think_end != -1:
                     clean_text = generated_text[think_end + len('</think>'):].strip()
             
+            # --- INÍCIO DA LIMPEZA E EXTRAÇÃO DEFINITIVA ---
             requirements_data = {"functional_requirements": [], "acceptance_criteria": []}
-            try:
-                parsed_data = json.loads(clean_text)
-                if 'functional_requirements' in parsed_data and 'acceptance_criteria' in parsed_data:
-                    requirements_data = parsed_data
-                else:
-                    logging_service.log_warning(f"Formato JSON inesperado da LLM para requisitos: {clean_text[:500]}", operation="generate_requirements_json_parse", user_id=user_id)
-                    raise ValueError("Formato JSON inesperado da LLM.")
-            except json.JSONDecodeError:
-                logging_service.log_warning(f"LLM não retornou JSON válido para requisitos. Retornando vazio.", operation="generate_requirements_fallback", user_id=user_id)
+            
+            # RASTREADOR: Imprime a resposta real da IA no terminal
+            print("\n" + "="*40)
+            print("TEXTO BRUTO DA IA (REQUISITOS):")
+            print(clean_text)
+            print("="*40 + "\n")
+            
+            # A Tesoura: Procura onde começa o JSON { e onde termina }
+            start_idx = clean_text.find('{')
+            end_idx = clean_text.rfind('}')
+            
+            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                json_str = clean_text[start_idx:end_idx+1] # Recorta só o miolo
+                try:
+                    parsed_data = json.loads(json_str)
+                    if 'functional_requirements' in parsed_data:
+                        requirements_data = parsed_data
+                except Exception as e:
+                    print(f"Erro ao forçar leitura do JSON: {e}")
+            
+            if not requirements_data.get('functional_requirements'):
+                logging_service.log_warning("LLM não retornou JSON válido para requisitos. Retornando vazio.", operation="generate_requirements_fallback", user_id=user_id)
+            # --- FIM DA LIMPEZA ---
             
             created_requirements = []
             for req_data in requirements_data.get('functional_requirements', []):
@@ -138,6 +127,7 @@ class RequirementService:
                     )
                     created_requirements.append(requirement)
             
+            # Processa e anexa os critérios de aceite
             if requirements_data.get('acceptance_criteria'):
                 ac_text = "\n\nCritérios de Aceite:\n"
                 for ac in requirements_data['acceptance_criteria']:
@@ -154,6 +144,7 @@ class RequirementService:
                     logging_service.log_info(f"Critérios de Aceite gerados sem requisito associado: {ac_text}", operation="acceptance_criteria_no_req", user_id=user_id, details={"user_story_id": user_story.id})
 
             return created_requirements
+            
         except Exception as e:
             logging_service.log_llm_interaction(
                 operation="generate_requirements_for_user_story",
@@ -167,61 +158,22 @@ class RequirementService:
 
     @staticmethod
     def get_requirement_by_id(requirement_id):
-        """
-        Busca um requisito pelo ID.
-        
-        Args:
-            requirement_id (int): ID do requisito
-            
-        Returns:
-            Requirement: O requisito encontrado ou None
-        """
+        """Busca um requisito pelo ID."""
         return Requirement.query.get(requirement_id)
 
     @staticmethod
     def get_requirements_by_user_story(user_story_id):
-        """
-        Retorna todos os requisitos de uma história de usuário.
-        
-        Args:
-            user_story_id (int): ID da história de usuário
-            
-        Returns:
-            list: Lista de requisitos da história de usuário
-        """
+        """Retorna todos os requisitos de uma história de usuário."""
         return Requirement.query.filter_by(user_story_id=user_story_id).all()
 
     @staticmethod
     def get_requirements_by_user(user_id):
-        """
-        Retorna todos os requisitos de um usuário.
-        
-        Args:
-            user_id (int): ID do usuário
-            
-        Returns:
-            list: Lista de requisitos do usuário
-        """
+        """Retorna todos os requisitos de um usuário."""
         return Requirement.query.join(UserStory).join(Epic).join(Product).filter(Product.owner_id == user_id).all()
 
     @staticmethod
     def update_requirement(requirement_id, description=None, priority=None, status=None, user_id=None):
-        """
-        Atualiza as informações de um requisito existente.
-        
-        Args:
-            requirement_id (int): ID do requisito
-            description (str): Nova descrição
-            priority (str): Nova prioridade
-            status (str): Novo status
-            user_id (int): ID do usuário que fez a alteração
-            
-        Returns:
-            Requirement: O requisito atualizado
-            
-        Raises:
-            ValueError: Se o requisito não for encontrado
-        """
+        """Atualiza as informações de um requisito existente."""
         requirement = Requirement.query.get(requirement_id)
         if not requirement:
             raise ValueError("Requisito não encontrado.")
@@ -254,19 +206,7 @@ class RequirementService:
 
     @staticmethod
     def delete_requirement(requirement_id, user_id=None):
-        """
-        Deleta um requisito pelo ID, incluindo suas revisões.
-        
-        Args:
-            requirement_id (int): ID do requisito
-            user_id (int): ID do usuário que deletou
-            
-        Returns:
-            bool: True se deletado com sucesso
-            
-        Raises:
-            ValueError: Se o requisito não for encontrado
-        """
+        """Deleta um requisito pelo ID, incluindo suas revisões."""
         from app.models.revision import Revision
         
         requirement = Requirement.query.get(requirement_id)
@@ -291,17 +231,7 @@ class RequirementService:
 
     @staticmethod
     def _create_revision(requirement, change_description, user_id=None):
-        """
-        Cria uma revisão para o requisito.
-        
-        Args:
-            requirement (Requirement): O requisito
-            change_description (str): Descrição da mudança
-            user_id (int): ID do usuário responsável pela mudança
-            
-        Returns:
-            Revision: A revisão criada
-        """
+        """Cria uma revisão para o requisito."""
         content = {
             'id': requirement.id,
             'description': requirement.description,

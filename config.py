@@ -7,14 +7,16 @@ incluindo configurações de banco de dados, JWT, logging e outras variáveis do
 
 import os
 from datetime import timedelta
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class Config:
     """Configuração base para a aplicação."""
     
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'sua_chave_secreta_muito_segura'
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-                              'postgresql://postgres:1337@localhost:5432/product_owner_db'
+                              'postgresql://postgres:Araujo12!@localhost:5432/product_owner_db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Configurações de Logging

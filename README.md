@@ -212,10 +212,7 @@ poetry run pytest tests/test_llm_service.py
 
 ## 👥 Equipe
 
-- **Alessandro Oliveira** - [alessandrooliveira.aluno@unipampa.edu.br](mailto:alessandrooliveira.aluno@unipampa.edu.br)
-- **Leonardo Paulino de Oliveira** - [leonardopaulino.aluno@unipampa.edu.br](mailto:leonardopaulino.aluno@unipampa.edu.br)
-- **Guilherme Oviedo Nunes** - [guilhermeoviedo.aluno@unipampa.edu.br](mailto:guilhermeoviedo.aluno@unipampa.edu.br)
-- **Marcus Vinicius da Luz Araujo** - [marcusaraujo.aluno@unipampa.edu.br](mailto:marcusaraujo.aluno@unipampa.edu.br)
+- **Marcus Vinicius da Luz Araujo** 
 
 ## 📝 Notas de Desenvolvimento
 
