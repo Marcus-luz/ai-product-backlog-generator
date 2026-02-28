@@ -5,7 +5,7 @@ services:
     runtime: python
     plan: free # Plano gratuito
     # Comando para instalar as dependências usando o Poetry
-    buildCommand: "pip install poetry && poetry install"
+    buildCommand: "pip install poetry && poetry install --no-root"
     # Comando para iniciar o servidor com Gunicorn (mais seguro para produção)
     startCommand: "poetry run gunicorn run:app"
     envVars:

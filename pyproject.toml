@@ -1,14 +1,12 @@
-# pyproject.toml
-
 [project]
 name = "assistente-artefatos-ageis"
 version = "0.1.0"
 description = "Ferramentas de apoio ao projeto"
 authors = [
-    {name = "Marcus Vinicius",email = "marcusvyni3@gmail.com"}
+    {name = "Marcus Luz", email = "marcusvyni3@gmail.com"}
 ]
 readme = "README.md"
-package-mode = false # Manter esta linha
+# REMOVI A LINHA PACKAGE-MODE DAQUI
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "flask (>=3.1.1,<4.0.0)",
@@ -20,11 +18,13 @@ dependencies = [
     "flask-jwt-extended (>=4.7.1,<5.0.0)",
     "flask-migrate (>=4.1.0,<5.0.0)",
     "gunicorn (>=25.1.0,<26.0.0)",
+    "alembic (>=1.16.2,<2.0.0)",
 ]
+
+# NOVO BLOCO: COLOQUE ISSO AQUI PARA O POETRY NÃO TENTAR EMPACOTAR O PROJETO
+[tool.poetry]
+package-mode = false
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.group.dev.dependencies]
-alembic = "^1.16.2"
