@@ -7,7 +7,7 @@ services:
     # Comando para instalar as dependências usando o Poetry
     buildCommand: "pip install poetry && poetry install --no-root"
     # Comando para iniciar o servidor com Gunicorn (mais seguro para produção)
-    startCommand: "poetry run alembic upgrade head && poetry run gunicorn run:app"
+    startCommand: "poetry run alembic upgrade head && poetry run gunicorn -b 0.0.0.0:$PORT run:app"
     envVars:
       - key: FLASK_CONFIG
         value: production

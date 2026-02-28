@@ -10,7 +10,7 @@ Desenvolvido com Flask e PostgreSQL, o sistema oferece uma interface web intuiti
 ## 🛠️ Instalação
 
 ### Pré-requisitos
-- Python 3.11+
+- Python 3.12.10 estável
 - Poetry (gerenciador de dependências)
 - PostgreSQL 12+
 - Acesso a uma API de LLM (Groq)
@@ -59,7 +59,15 @@ FLASK_CONFIG=development
 # Configurações JWT (opcionais)
 JWT_SECRET_KEY=sua_chave_jwt
 ```
+## 🛠 Solução de Problemas (Troubleshooting)
+1. Erro: No module named poetry ou Falha no poetry install
+Causa: O Poetry não está disponível ou não está vinculado à versão do Python em uso (ex: Python 3.14).
 
+Solução: Force a instalação do Poetry via PIP e use o módulo do Python para instalar as dependências:
+```bash
+pip install poetry
+python -m poetry install
+```
 ### Banco de Dados
 O sistema utiliza PostgreSQL com SQLAlchemy ORM e Alembic para migrações. Para configurar:
 

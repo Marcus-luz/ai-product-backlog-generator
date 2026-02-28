@@ -1,5 +1,3 @@
-# tests/test_logging_service.py
-
 import pytest
 import os
 import json

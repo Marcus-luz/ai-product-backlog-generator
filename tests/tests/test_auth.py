@@ -1,4 +1,4 @@
-# tests/test_auth.py
+
 import pytest
 from app import create_app
 from app.extensions import db
@@ -11,7 +11,7 @@ def test_client():
     Cria um cliente de teste do Flask para os testes de autenticação.
     Usa uma configuração de teste com um banco de dados SQLite em memória.
     """
-    flask_app = create_app('testing') # Garanta que 'testing' existe em seu config.py
+    flask_app = create_app('testing') 
 
     with flask_app.app_context():
         db.create_all()
