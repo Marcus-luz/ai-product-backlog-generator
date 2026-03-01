@@ -79,72 +79,112 @@ O sistema utiliza PostgreSQL com SQLAlchemy ORM e Alembic para migrações. Para
 ## 🗂️ Estrutura do Projeto
 
 ```
-PROBLEMA-4/
-├── pyproject.toml            # Configuração do Poetry e dependências
-├── alembic.ini              # Configuração do Alembic (migrações)
-├── config.py                # Configurações da aplicação (desenvolvimento, produção, teste)
-├── run.py                   # Ponto de entrada da aplicação (executa o Flask app)
-├── README.md                # Descrição do projeto e instruções
-├── venv/                    # Ambiente virtual Python (criado pelo Poetry)
-├── logs/                    # Arquivos de log da aplicação
-├── migrations/              # Migrações do banco de dados (Alembic)
-├── tests/                   # Testes automatizados
-│   ├── conftest.py          # Configuração dos testes
-│   ├── test_auth.py         # Testes de autenticação
-│   ├── test_llm_service.py  # Testes do serviço LLM
-│   ├── test_logging_service.py # Testes do serviço de logging
-│   └── test_models.py       # Testes dos modelos
-├── app/                     # Lógica principal da aplicação
-│   ├── __init__.py          # Inicializa o Flask app e registra Blueprints
-│   ├── extensions.py        # Inicializa extensões Flask (SQLAlchemy, JWT, etc.)
-│   ├── models/              # Modelos de dados (SQLAlchemy ORM)
-│   │   ├── __init__.py
-│   │   ├── user.py          # Modelo para Usuários (autenticação)
-│   │   ├── product.py       # Modelo para Produtos
-│   │   ├── epic.py          # Modelo para Épicos
-│   │   ├── user_story.py    # Modelo para Histórias de Usuário
-│   │   ├── requirement.py   # Modelo para Requisitos
-│   │   ├── backlog.py       # Modelo para Product Backlog
-│   │   ├── persona.py       # Modelo para Personas
-│   │   ├── revision.py      # Modelo para Histórico de Revisões
-│   │   └── llm_interaction.py # Modelo para Interações com LLM
-│   ├── routes/              # Blueprints (rotas e lógica de negócio)
-│   │   ├── auth.py          # Rotas de autenticação (login, registro)
-│   │   ├── product_bp.py    # Rotas para gestão de produtos
-│   │   ├── dashboard_bp.py  # Rotas do dashboard principal
-│   │   ├── epic_bp.py       # Rotas para Épicos (geração, edição)
-│   │   ├── user_story_bp.py # Rotas para Histórias de Usuário
-│   │   ├── requirement_bp.py # Rotas para Requisitos
-│   │   ├── backlog_bp.py    # Rotas para o Product Backlog
-│   │   └── settings_bp.py   # Rotas de configurações
-│   ├── services/            # Serviços de negócio e lógica complexa
-│   │   ├── __init__.py
-│   │   ├── llm_service.py   # Integração com APIs de LLMs (Groq)
-│   │   ├── logging_service.py # Registro detalhado de logs e métricas
-│   │   ├── product_service.py # Lógica de negócio para produtos
-│   │   ├── epic_service.py  # Lógica de negócio para épicos
-│   │   ├── user_story_service.py # Lógica de negócio para user stories
-│   │   ├── requirement_service.py # Lógica de negócio para requisitos
-│   │   └── backlog_service.py # Lógica de negócio para backlog
-│   ├── utils/               # Funções utilitárias e helpers
-│   │   ├── __init__.py
-│   │   ├── decorators.py    # Decoradores para validação, autenticação
-│   │   └── prompt_templates.py # Templates de prompts para LLMs
-│   ├── templates/           # Arquivos HTML para o frontend Flask
-│   │   ├── base.html        # Template base
-│   │   ├── dashboard.html   # Dashboard principal
-│   │   ├── products.html    # Lista de produtos
-│   │   ├── product_detail.html # Detalhes do produto
-│   │   ├── epics.html       # Gestão de épicos
-│   │   ├── stories.html     # Gestão de user stories
-│   │   ├── requirements.html # Gestão de requisitos
-│   │   ├── backlog.html     # Product backlog
-│   │   └── auth/            # Templates de autenticação
-│   └── static/              # Arquivos estáticos (CSS, JS, imagens)
-│       ├── css/
-│       ├── js/
-│       └── img/
-└── __pycache__/             # Cache do Python
+problema-4/
+├── .pytest_cache/                  # Metadados e cache de execução do Pytest
+│   ├── CACHEDIR.TAG
+│   ├── README.md
+│   └── v/
+│       └─ cache/
+│           ├── lastfailed          # Armazena os últimos testes que falharam para re-execução rápida
+│           └── nodeids             # IDs de referência para os nós de teste
+├── alembic.ini                     # Configuração do Alembic para controle de migrações de banco de dados
+├── app/                            # Núcleo da aplicação desenvolvida em Python/Flask
+│   ├── extensions.py               # Inicialização de extensões (SQLAlchemy, JWT, etc.)
+│   ├── models/                     # Camada de Modelos de Dados (SQLAlchemy ORM)
+│   │   ├── backlog.py              # Definição da estrutura do Backlog do Produto
+│   │   ├── epic.py                 # Modelo para agrupamento de requisitos (Épicos)
+│   │   ├── persona.py              # Definição de perfis de usuários do sistema
+│   │   ├── product.py              # Modelo central para gestão de produtos
+│   │   ├── requirement.py          # Estrutura para requisitos funcionais/não-funcionais
+│   │   ├── revision.py             # Log de histórico e versões de alterações
+│   │   ├── user.py                 # Modelo de Usuário e credenciais
+│   │   ├── user_story.py           # Estrutura para Histórias de Usuário
+│   │   └── __init__.py
+│   ├── routes/                     # Organização de rotas via Blueprints
+│   │   ├── auth.py                 # Fluxos de autenticação, login e registro
+│   │   ├── backlog_bp.py           # Gestão e visualização do backlog
+│   │   ├── dashboard_bp.py         # Painel principal de métricas do sistema
+│   │   ├── epic_bp.py              # Endpoints para manipulação de Épicos
+│   │   ├── product_bp.py           # CRUD e gestão de produtos
+│   │   ├── requirement_bp.py       # Gestão do ciclo de vida de requisitos
+│   │   ├── settings_bp.py          # Configurações de conta e sistema
+│   │   └── user_story_bp.py        # Endpoints para User Stories
+│   ├── services/                   # Camada de Serviços (Lógica de Negócio isolada)
+│   │   ├── backlog_service.py      # Processamento de priorização do backlog
+│   │   ├── epic_service.py         # Lógica para criação e refinamento de Épicos
+│   │   ├── llm_service.py          # Integração com Groq e modelos de IA
+│   │   ├── logging_service.py      # Auditoria de interações e métricas de sistema
+│   │   ├── product_service.py      # Lógica de negócio vinculada a produtos
+│   │   ├── requirement_service.py  # Regras para validação de requisitos
+│   │   └── user_story_service.py   # Gerenciamento de histórias de usuário
+│   ├── static/                     # Ativos estáticos servidos pelo Flask
+│   │   ├── css/
+│   │   │   └── style.css           # Estilização principal do sistema
+│   │   ├── favicon.ico             # Ícone do navegador
+│   │   ├── img/                    # Ativos visuais (Logos, imagens de fundo)
+│   │   │   ├── login_image.png
+│   │   │   └── system_logo.png
+│   │   └── js/
+│   │       └── main.js             # Scripts para interatividade no frontend
+│   ├── templates/                  # Templates HTML utilizando o motor Jinja2
+│   │   ├── auth/
+│   │   │   ├── login.html          # Interface de acesso ao sistema
+│   │   │   └── register.html       # Interface de criação de conta
+│   │   ├── backlog.html            # Visualização do Backlog do Produto
+│   │   ├── base.html               # Layout mestre herdado pelas demais páginas
+│   │   ├── dashboard.html          # Página principal com métricas
+│   │   ├── epics.html              # Listagem e gestão de Épicos
+│   │   ├── products.html           # Gestão de portfólio de produtos
+│   │   ├── product_detail.html     # Visão detalhada de um produto específico
+│   │   ├── requirements.html       # Central de requisitos
+│   │   └── stories.html            # Visualização de User Stories
+│   ├── utils/                      # Scripts auxiliares e helpers
+│   │   └── prompt_templates.py     # Estruturas de prompts para otimização da IA
+│   └── __init__.py                 # Padrão Application Factory para inicialização
+├── config.py                       # Configurações de ambiente (Desenvolvimento, Teste, Produção)
+├── cypress/                        # Framework para testes de ponta a ponta (E2E) e BDD
+│   ├── e2e/                        # Cenários de teste e especificações
+│   │   ├── dashboard.cy.js         # Validação de interface do Dashboard
+│   │   ├── login.cy.js             # Validação funcional do fluxo de login
+│   │   ├── produto.feature         # Cenários documentados em Gherkin
+│   │   └── step_definitions/
+│   │       └── produto_steps.js    # Implementação técnica dos passos Gherkin
+│   ├── fixtures/                   # Dados mockados para simulação de respostas
+│   │   └── example.json
+│   └── support/                    # Configurações e comandos globais do Cypress
+│       ├── commands.js             # Customização de comandos (ex: cy.login())
+│       └── e2e.js                  # Configuração global de ambiente de teste
+├── cypress.config.js               # Arquivo central de configuração do Cypress
+├── locustfile.py                   # Script para testes de carga e performance com Locust
+├── logs/                           # Armazenamento de logs de auditoria
+│   ├── llm_interactions_2025-07.jsonl # Histórico de interações com IA de Julho/2025
+│   └── llm_interactions_2026-02.jsonl # Histórico de interações recente (Fevereiro/2026)
+├── migrations/                     # Scripts de evolução do esquema do Banco de Dados
+│   ├── env.py                      # Ambiente de execução do Alembic
+│   ├── README                      # Documentação das migrações
+│   ├── script.py.mako              # Template para novos scripts de migração
+│   └── versions/                   # Histórico cronológico das alterações no DB
+│       ├── 3353bf69da4a_increase_password_hash_length.py
+│       ├── 789a8f8ff6f4_initial_database_setup.py
+│       ├── add_generated_by_llm_epics.py
+│       ├── add_llm_interactions_table.py
+│       └── e9bf6b2f031b_add_generated_by_llm_to_requirements.py
+├── package-lock.json               # Versões travadas de dependências Node.js
+├── package.json                    # Scripts e dependências para Cypress e ferramentas JS
+├── poetry.lock                     # Versões travadas das dependências Python
+├── pyproject.toml                  # Manifesto de projeto e dependências via Poetry
+├── README.md                       # Documentação técnica principal do repositório
+├── render.yaml                     # Configuração para Deployment na plataforma Render
+├── run.py                          # Script de entrada para execução local do servidor
+├── runtime.txt                     # Especificação da versão do Python para ambientes de nuvem
+└── tests/                          # Suíte de testes automatizados do Backend (Pytest)
+    └─ tests/
+        ├── conftest.py             # Configurações e Fixtures compartilhadas do Pytest
+        ├── test_auth.py            # Testes unitários para serviços de autenticação
+        ├── test_llm_service.py     # Testes de integração com a API de LLM
+        ├── test_logging_service.py # Testes do sistema de auditoria e logs
+        ├── test_models.py          # Validação das restrições e esquemas dos modelos ORM
+        └── __init__.py
 ```
 
 ## 📚 Funcionalidades Principais
@@ -249,6 +289,31 @@ Os logs são organizados em categorias:
 - **Performance**: Métricas de desempenho
 - **Autenticação**: Eventos de login/logout
 
+## 🧪 Qualidade de Software (QA)
+
+O projeto possui uma suíte robusta de testes automatizados, cobrindo múltiplas camadas da aplicação para garantir a estabilidade das funcionalidades, da interface e da integração com a Inteligência Artificial.
+
+### 🛠️ 1. Testes de Back-end (Caixa Branca e Unitários)
+Utilizamos o **Pytest** para validar as regras de negócio internas, serviços de autenticação, operações de base de dados e a comunicação com a API do Groq. A suíte abrange:
+* **Autenticação**: Validação de login e registo.
+* **Modelos**: Integridade das entidades do banco de dados.
+* **Serviços de IA**: Construção e resposta de prompts.
+* **Logging**: Rastreabilidade de interações.
+
+* **Como executar:**
+  ```bash
+  poetry run pytest
+
+### 🖥️ 2. Testes Ponta a Ponta / E2E (Caixa Preta)
+Utilizamos o Cypress para simular a navegação de um usuário real, garantindo o funcionamento do fluxo de login e a criação de produtos. É importante ressaltar que o servidor Flask deve estar em execução através do comando **poetry run python run.py** para que o Cypress interaja com a aplicação. Para realizar os testes, você pode abrir a interface visual e interativa com **npx cypress open** ou optar pela execução direta em modo terminal (headless) utilizando **npx cypress run**.
+
+### 📖 3. BDD (Behavior-Driven Development)
+Integramos o Cucumber ao Cypress para documentar e testar requisitos em linguagem natural via Gherkin, permitindo que os critérios de aceitação sejam validados automaticamente. O arquivo de cenários está localizado em **cypress/e2e/produto. feature** e, para validar os cenários de negócio em tempo real, basta selecionar este arquivo **.feature** ao abrir a interface do Cypress.
+
+### 🚀 4. Testes de Performance e Carga (Não-Funcionais)
+Utilizamos o Locust para avaliar a resiliência do sistema e o comportamento do backend sob estresse, simulando múltiplos usuários simultâneos. Em nossos benchmarks (v1.0), com uma carga simulada de 50 usuários simultâneos (Spawn rate: 5/s), o sistema atingiu um throughput de aproximadamente 25.2 RPS e um tempo de resposta médio de 12ms para renderização de views e acesso ao Dashboard, bloqueando acessos não autenticados em apenas 3ms. Para executar a simulação, inicie o servidor com **poetry run locust** e acesse **http://localhost:8089** para configurar o **host http://127.0.0.1:5000.**
+
+
 # 📚 Visualização do Sistema
 - **Login**
 <img width="1158" height="571" alt="AI-Product-Owner" src="https://github.com/user-attachments/assets/101b8af0-12cd-4475-afba-2681c0a7fc8f" />
@@ -268,7 +333,5 @@ Os logs são organizados em categorias:
 
 - **Requisitos**
 <img width="1867" height="913" alt="ia4" src="https://github.com/user-attachments/assets/39e38af4-2158-406d-8a22-55b401101fca" />
-
-
 
 

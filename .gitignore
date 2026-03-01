@@ -54,3 +54,16 @@ data/large_data/
 datasets/
 raw_data/
 processed_data/
+
+# Dependências de JavaScript
+*node_modules/
+
+# Dependências de Python (Poetry/Venv)
+.venv/
+*__pycache__/
+*.pyc
+
+# Logs e Cache
+*logs/
+*.pytest_cache/
+*.cypress-cache/

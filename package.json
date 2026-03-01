@@ -1,0 +1,32 @@
+{
+  "name": "problema-4",
+  "version": "1.0.0",
+  "description": "> Sistema de apoio à geração de artefatos para metodologias ágeis usando Large Language Models (LLMs)",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Marcus-luz/ai-product-backlog-generator.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Marcus-luz/ai-product-backlog-generator/issues"
+  },
+  "homepage": "https://github.com/Marcus-luz/ai-product-backlog-generator#readme",
+  "devDependencies": {
+    "@badeball/cypress-cucumber-preprocessor": "^24.0.1",
+    "@bahmutov/cypress-esbuild-preprocessor": "^2.2.8",
+    "cypress": "^15.11.0",
+    "esbuild": "^0.27.3"
+  }
+  ,"cypress-cucumber-preprocessor": {
+    "stepDefinitions": "cypress/e2e/step_definitions/**/*.{js,ts}"
+  }
+}
