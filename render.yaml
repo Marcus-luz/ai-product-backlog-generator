@@ -14,17 +14,8 @@ services:
       - key: GROQ_MODEL
         value: llama-3.3-70b-versatile
       - key: DATABASE_URL
-        fromDatabase:
-          name: agile-db
-          property: connectionString
+        sync: false
       - key: GROQ_API_KEY
         sync: false # Você vai preencher manualmente no painel do Render por segurança
       - key: SECRET_KEY
         generateValue: true # O Render gera uma chave secreta segura para você
-
-# O nosso Banco de Dados PostgreSQL
-databases:
-  - name: agile-db
-    plan: free # Plano gratuito (dura 90 dias)
-    databaseName: agile_artifacts
-    user: marcus_admin
