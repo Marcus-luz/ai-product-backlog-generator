@@ -2,6 +2,8 @@
 
 > Sistema de apoio à geração de artefatos para metodologias ágeis usando Large Language Models (LLMs)
 
+**Acesse o projeto online:** [Assistente de Geração de Artefatos Ágeis](https://agile-artifacts-assistant.onrender.com)
+
 ## 📋 Sobre o Projeto
 Este sistema utiliza modelos de linguagem avançados para auxiliar equipes ágeis na criação e gerenciamento de diversos artefatos como épicos, histórias de usuário, requisitos e product backlog. Ideal para times que desejam acelerar seus processos de documentação mantendo consistência e qualidade.
 
