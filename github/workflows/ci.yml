@@ -1,0 +1,135 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─────────────────────────────────────────
+  # JOB 1: Testes unitários com Pytest
+  # ─────────────────────────────────────────
+  unit-tests:
+    name: Pytest – Testes Unitários
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      FLASK_CONFIG: testing
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      SECRET_KEY: ci-secret-key-para-testes
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar Poetry
+        run: pip install poetry
+
+      - name: Instalar dependências (incluindo dev)
+        run: poetry install --with dev --no-root
+
+      - name: Rodar migrações
+        run: poetry run alembic upgrade head
+
+      - name: Executar Pytest
+        run: poetry run pytest --tb=short -q
+
+  # ─────────────────────────────────────────
+  # JOB 2: Testes E2E com Cypress + Cucumber
+  # ─────────────────────────────────────────
+  e2e-tests:
+    name: Cypress – Testes E2E (BDD)
+    runs-on: ubuntu-latest
+    needs: unit-tests  # Só roda se o Pytest passou
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      FLASK_CONFIG: testing
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      SECRET_KEY: ci-secret-key-para-testes
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar Poetry e dependências
+        run: |
+          pip install poetry
+          poetry install --no-root
+
+      - name: Rodar migrações e subir servidor Flask em background
+        run: |
+          poetry run alembic upgrade head
+          poetry run flask run &
+          sleep 5  # aguarda o servidor inicializar
+
+      - name: Instalar dependências Node (Cypress)
+        run: npm install
+
+      - name: Executar Cypress
+        run: npx cypress run
+
+      - name: Upload de screenshots em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-screenshots
+          path: cypress/screenshots
+
+  # ─────────────────────────────────────────
+  # JOB 3: Deploy automático no Render
+  # (só na branch main, após todos os testes)
+  # ─────────────────────────────────────────
+  deploy:
+    name: Deploy – Render (Produção)
+    runs-on: ubuntu-latest
+    needs: [unit-tests, e2e-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Disparar deploy no Render via webhook
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          echo "Deploy disparado com sucesso!"
